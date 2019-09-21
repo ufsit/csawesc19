@@ -1,54 +1,75 @@
 \documentclass[conference]{IEEEtran}
-\IEEEoverridecommandlockouts
-% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+
+\pagestyle{plain}
+
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
-\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
-    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\usepackage{xspace}
+\usepackage{listings}
+
+\usepackage{hyperref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% For autoref naming of sections
+\renewcommand{\sectionautorefname}{Section}
+\renewcommand{\subsectionautorefname}{Section}
+\renewcommand{\subsubsectionautorefname}{Section}
+
+% Note/todo commands
+\newcommand{\needref}{\textcolor{blue}{[ref?]}}
+\newcommand\grant[1]{{\color{purple}[Grant: #1]}}
+
+% Listing configuration
+\definecolor{comments}{RGB}{74,131,31}
+\definecolor{strings}{RGB}{0,128,64}
+\definecolor{numbers}{RGB}{44,45,211}
+\definecolor{identifiers}{RGB}{153,153,0}
+
+\lstset{
+  language=C,
+  numbers=none,
+  basicstyle={\tt\small},
+  stringstyle=\color{strings},
+  commentstyle=\color{comments},
+  keywordstyle={\color{blue}\bfseries},
+  %identifierstyle={\ttfamily\color{identifiers}},
+  numberstyle=\color{strings},
+  emph      = [1]{
+    challengeFunction,secretFunction},
+  emphstyle=[1]{\ttfamily\bfseries\color{blue}},
+  stepnumber=1,                   % the step between two line-numbers.
+  numbersep=5pt,                  % how far the line-numbers are from the code
+  backgroundcolor=\color{white},  % choose the background color. You must add \usepackage{color}
+  showspaces=false,               % show spaces adding particular underscores
+  showstringspaces=false,         % underline spaces within strings
+  showtabs=false,                 % show tabs within strings adding particular underscores
+  tabsize=2,                      % sets default tabsize to 2 spaces
+  captionpos=b,                   % sets the caption-position to bottom
+  breaklines=true,                % sets automatic line breaking
+  breakatwhitespace=true,         % sets if automatic breaks should only happen at whitespace
+  xleftmargin=2em,framexleftmargin=1.5em
+}%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \begin{document}
 
-\title{Kernel Sanders: CSAW ESC'19 Quals\\
+\title{Kernel Sanders: CSAW {ESC'19} Quals\\
 }
 
-\author{\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address}
-\and
-\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address}
-\and
-\IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address}
-\and
-\IEEEauthorblockN{4\textsuperscript{th} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address}
-\and
-\IEEEauthorblockN{5\textsuperscript{th} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address}
-\and
-\IEEEauthorblockN{6\textsuperscript{th} Given Name Surname}
-\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
-\textit{name of organization (of Aff.)}\\
-City, Country \\
-email address}
+\author{\IEEEauthorblockN{
+Grant Hernandez\IEEEauthorrefmark{1},
+Claire Seiler\IEEEauthorrefmark{1},
+Owen Flannigan\IEEEauthorrefmark{1},
+Hunter Searle\IEEEauthorrefmark{1},
+Kevin R. B. Butler\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}University of Florida, Gainesville, FL, USA\\ \{grant.hernandez,
+  cseiler, owenflannagan, huntersearle, butler\}@ufl.edu}
 }
 
 \maketitle

@@ -1,1 +1,40 @@
-CHALLENGE
+TODO: CHALLENGE SOLUTION
+
+\begin{lstlisting}
+void challengeFunction(char *flag) {
+  int i;
+  uint table [8];
+  bool goodFlag;
+  
+  table[0] = 1;
+  table[1] = 2;
+  table[2] = 1;
+  table[3] = 2;
+  table[4] = 1;
+  table[5] = 2;
+  table[6] = 1;
+  table[7] = 2;
+  goodFlag = true;
+  i = 0;
+
+  while (i < 8) {
+    if (((int)flag[(long)i] - 0x30U ^ 3) != table[(long)i]) {
+      goodFlag = false;
+    }
+    i += 1;
+  }
+  if (goodFlag) {
+    puts("Great Job! The flag is what you entered");
+  }
+  return;
+}
+\end{lstlisting}
+
+Further investigation of the functions discovered by GHIDRA, we notice one named \texttt{secretFunction}.
+\begin{lstlisting}
+void secretFunction(void) {
+  puts("The flag is <<shhimhiding>>");
+  return;
+}
+\end{lstlisting}
+
