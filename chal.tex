@@ -33,4 +33,47 @@ void challengeFunction(char *param_1)
 	return;
 }
 \end{lstlisting}
+
 After all the definitions and initialization, the important part of this function is in the while loop. The loop iterates through each of the first 8 chars of the input, applies a simple transformation, then compares it to the corresponding indices of the array, local\textunderscore 28. If each comparison is true, the function prints out a success message. Otherwise, it exits. In order to figure out what input was required, we worked backwards from the local variable. The first 4 numbers in the array are 1, 2, 1, and 2, which are explicitly assigned to the first 4 indices of local\textunderscore 28. Because the array is only allocated with a size of 4, the last 4 comparisons in the while loop run off the end of the array. Space for local variables is allocated on the stack, so the 4 memory spaces immediately after local\textunderscore 28 are the next 4 local variables allocated, namely local\textunderscore 18, local\textunderscore 14, local\textunderscore 10, and local\textunderscore c, with values 1, 2, 1, and 2, respectively. So, after applying the transformation on the input, the first 8 chars must be equal to 1, 2, 1, 2, 1, 2, 1, and 2. The last step is to reverse the transformation, which consists of subtracting the hex value 30, the XORing with 3. The XOR operation turns a 1 into a 2, and a 2 into a 1. Adding 0x30 gives the numerical value of our input as 0x32, 0x31, 0x32, 0x31, 0x32, 0x31, 0x32, and 0x31. Consulting an ASCII table gives the char value for this sequence as "21212121". Running the program with that argument prints out the success message.
+
+Based off of our reverse engineering, we can rename variables and change types to the following:
+\begin{lstlisting}
+void challengeFunction(char *flag) {
+  int i;
+  uint table [8];
+  bool goodFlag;
+  
+  table[0] = 1;
+  table[1] = 2;
+  table[2] = 1;
+  table[3] = 2;
+  table[4] = 1;
+  table[5] = 2;
+  table[6] = 1;
+  table[7] = 2;
+  goodFlag = true;
+  i = 0;
+
+  while (i < 8) {
+    if (((int)flag[(long)i] - 0x30U ^ 3) != table[(long)i]) {
+      goodFlag = false;
+    }
+    i += 1;
+  }
+  if (goodFlag) {
+    puts("Great Job! The flag is what you entered");
+  }
+  return;
+}
+\end{lstlisting}
+
+Further investigation of the functions discovered by GHIDRA, we notice one named \texttt{secretFunction}.
+
+\begin{lstlisting}
+void secretFunction(void) {
+  puts("The flag is <<shhimhiding>>");
+  return;
+}
+\end{lstlisting}
+
+This function is never referenced by the \texttt{main} or \texttt{challengeFunction}, but it was easily discovered through static analysis (GNU \texttt{strings} also revealed the other flag string).
