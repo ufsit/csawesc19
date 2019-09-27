@@ -43,12 +43,11 @@
   commentstyle=\color{comments},
   keywordstyle={\color{blue}\bfseries},
   %identifierstyle={\ttfamily\color{identifiers}},
-  numberstyle=\color{strings},
   emph      = [1]{
     challengeFunction,secretFunction},
   emphstyle=[1]{\ttfamily\bfseries\color{blue}},
   stepnumber=1,                   % the step between two line-numbers.
-  numbersep=5pt,                  % how far the line-numbers are from the code
+  numbersep=10pt,                  % how far the line-numbers are from the code
   backgroundcolor=\color{white},  % choose the background color. You must add \usepackage{color}
   showspaces=false,               % show spaces adding particular underscores
   showstringspaces=false,         % underline spaces within strings
@@ -59,6 +58,10 @@
   breakatwhitespace=true,         % sets if automatic breaks should only happen at whitespace
   xleftmargin=2em,framexleftmargin=1.5em
 }%
+
+\lstdefinelanguage{none}{
+  identifierstyle=
+}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -72,18 +75,15 @@ Grant Hernandez\IEEEauthorrefmark{1},
 Claire Seiler\IEEEauthorrefmark{1},
 Owen Flannigan\IEEEauthorrefmark{1},
 Hunter Searle\IEEEauthorrefmark{1},
-Kevin R. B. Butler\IEEEauthorrefmark{1}}
+Kevin R.B. Butler\IEEEauthorrefmark{1}}
 \IEEEauthorblockA{\IEEEauthorrefmark{1}University of Florida, Gainesville, FL, USA\\ \{grant.hernandez,
   cseiler, owenflannagan, huntersearle, butler\}@ufl.edu}
 }
 
 \maketitle
 
-\begin{abstract}
-This document is a model and instructions for \LaTeX.
-This and the IEEEtran.cls file define the components of your paper [title, text, heads, etc.]. *CRITICAL: Do Not Use Symbols, Special Characters, Footnotes, 
-or Math in Paper Title or Abstract.
-\end{abstract}
+%\begin{abstract}
+%\end{abstract}
 
 \section{Introduction}
 \input{intro}
