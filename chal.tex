@@ -67,6 +67,34 @@ void challengeFunction(char *flag) {
 }
 \end{lstlisting}
 
+\subsection{A deeper look at the assembly}
+In order to understand how to reach the code that puts the affirmative message, it is important to understand how to prevent goodFlag from being set to False. As goodFlag is initialized to true, it is necessary to avoid the conditional passing. To better understand this code, we looked at this region as x86 assembly.
+
+\begin{lstlisting}[numbers=left]
+LAB_0040057e          XREF[1]:     0x4005b6(j)  
+0x40057e 8b45dc    MOV    EAX, dword ptr [RBP + local_2c]
+0x400581 4863d0    MOVSXD RDX, EAX
+0x400584 488b45c8  MOV    RAX, qword ptr [RBP + local_40]
+0x400588 4801d0    ADD    RAX, RDX
+0x40058b 0fb600    MOVZX  EAX, byte ptr [RAX]
+0x40058e 8845db    MOV    byte ptr [RBP + local_2d], AL
+0x400591 0fbe45db  MOVSX  EAX, byte ptr [RBP + local_2d]
+0x400595 83e830    SUB    EAX, 0x30
+0x400598 83f003    XOR    EAX, 0x3
+0x40059b 89c2      MOV    EDX, EAX
+0x40059d 8b45dc    MOV    EAX, dword ptr [RBP + local_2c]
+0x4005a0 4898      CDQE
+0x4005a2 8b4485e0  MOV    EAX, dword ptr [RBP + RAX*0x4 + -0x20]
+0x4005a6 39c2      CMP    EDX, EAX
+0x4005a8 7404      JZ     LAB_004005ae
+0x4005aa c645da00  MOV    byte ptr [RBP + local_2e], 0x0
+\end{lstlisting}
+
+In this assembly, \texttt{RBP + local\_2c} holds the value of i that increments from 0 to 8. Additionally, \texttt{RBP + local\_40} holds the parameter that is passed to this \texttt{challengeFunction}, and this is the argument to the program itself. When RAX and RDX are added at 0x400588, this is used to create a pointer to the i'th character of the string, and this character is moved into EAX and \texttt{RBP + local\_2d}. After 0x30 is subtracted from this value, it is xored with 0x3. 0x30 is notable because this is the ascii value for the character '0', so subtracting 0x30 from any character of a one digit integer would retrieve it's value. 
+
+The incrementing value i is moved into EAX again at 0x4005a0, and this time it is multiplied by 0x4 and added to \texttt{RBP - 0x20}. This is where the array of 0's and 1's is stored, and this is statically created at the beginning of the function. When these are compared, execution will jump to 004005ae if they are equal, and 0 is moved into \texttt{RBP + local\_2e} if not. This local variable holds the boolean that we need to remain 1. Luckily, xor is a reversible operation, and addition is as well. 1 xored with 3 is 2, and 2 + 0x30 is 0x32. This is the character '2' in ASCII. 2 xored with 3 is 1, and 1 + 0x30 is 0x31, or '1' in ASCII. Since we know the order in which the values of 1 and 2 are assigned into the static array, we can determine that the argument to give the program is \texttt{21212121}.
+Running \texttt{./qualification.out} with the argument of 21212121 gives the affirmative message.
+
 Further investigation of the functions discovered by GHIDRA, we notice one named \texttt{secretFunction}.
 
 \begin{lstlisting}
@@ -76,32 +104,4 @@ void secretFunction(void) {
 }
 \end{lstlisting}
 
-This function is never referenced by the \texttt{main} or \texttt{challengeFunction}, but it was easily discovered through static analysis (GNU \texttt{strings} also revealed the other flag string).
-
-In order to understand how to reach the code that puts the affirmative message, it is important to understand how to prevent goodFlag from being set to False. As goodFlag is initialized to true, it is necessary to avoid the conditional passing. To better understand this code, we looked at this region as x86 assembly.
-
-\begin{lstlisting}
-                             LAB_0040057e                                    XREF[1]:     004005b6(j)  
-        0040057e 8b 45 dc        MOV        EAX,dword ptr [RBP + local_2c]
-        00400581 48 63 d0        MOVSXD     RDX,EAX
-        00400584 48 8b 45 c8     MOV        RAX,qword ptr [RBP + local_40]
-        00400588 48 01 d0        ADD        RAX,RDX
-        0040058b 0f b6 00        MOVZX      EAX,byte ptr [RAX]
-        0040058e 88 45 db        MOV        byte ptr [RBP + local_2d],AL
-        00400591 0f be 45 db     MOVSX      EAX,byte ptr [RBP + local_2d]
-        00400595 83 e8 30        SUB        EAX,0x30
-        00400598 83 f0 03        XOR        EAX,0x3
-        0040059b 89 c2           MOV        EDX,EAX
-        0040059d 8b 45 dc        MOV        EAX,dword ptr [RBP + local_2c]
-        004005a0 48 98           CDQE
-        004005a2 8b 44 85 e0     MOV        EAX,dword ptr [RBP + RAX*0x4 + -0x20]
-        004005a6 39 c2           CMP        EDX,EAX
-        004005a8 74 04           JZ         LAB_004005ae
-        004005aa c6 45 da 00     MOV        byte ptr [RBP + local_2e],0x0
-\end{lstlisting}
-
-In this assembly, \texttt{RBP + local_2c} holds the value of i that increments from 0 to 8. Additionally, \texttt{RBP + local_40} holds the parameter that is passed to this \texttt{challengeFunction}, and this is the argument to the program itself. When RAX and RDX are added at 00400588, this is used to create a pointer to the i'th character of the string, and this character is moved into EAX and \texttt{RBP + local_2d}. After 0x30 is subtracted from this value, it is xored with 0x3. 0x30 is notable because this is the ascii value for the character '0', so subtracting 0x30 from any character of a one digit integer would retrieve it's value. 
-
-The incrementing value i is moved into EAX again at 004005a0, and this time it is multiplied by 0x4 and added to \texttt{RBP - 0x20}. This is where the array of 0's and 1's is stored, and this is statically created at the beginning of the function. When these are compared, execution will jump to 004005ae if they are equal, and 0 is moved into \texttt{RBP + local_2e} if not. This local variable holds the boolean that we need to remain 1. Luckily, xor is a reversible operation, and addition is as well. 1 xored with 3 is 2, and 2 + 0x30 is 0x32. This is the character '2' in ASCII. 2 xored with 3 is 1, and 1 + 0x30 is 0x31, or '1' in ASCII. Since we know the order in which the values of 1 and 2 are assigned into the static array, we can determine that the argument to give the program is \texttt{21212121}.
-
-Running \texttt{./qualification.out} with the argument of 21212121 gives the affirmative message.
+This function is never referenced by the \texttt{main} or \texttt{challengeFunction}, but it was easily discovered through static analysis (GNU \texttt{strings} also revealed the other flag string.
