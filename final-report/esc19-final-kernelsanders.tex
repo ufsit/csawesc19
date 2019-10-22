@@ -1,0 +1,112 @@
+\documentclass[conference]{IEEEtran}
+
+\pagestyle{plain}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{xspace}
+\usepackage{listings}
+\usepackage{lmodern}
+
+% (2) specify encoding
+\usepackage[T1]{fontenc}
+
+% (3) load symbol definitions
+\usepackage{hyperref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% For autoref naming of sections
+\renewcommand{\sectionautorefname}{Section}
+\renewcommand{\subsectionautorefname}{Section}
+\renewcommand{\subsubsectionautorefname}{Section}
+
+% Note/todo commands
+\newcommand{\needref}{\textcolor{blue}{[ref?]}}
+\newcommand\grant[1]{{\color{purple}[Grant: #1]}}
+
+% Listing configuration
+\definecolor{comments}{RGB}{74,131,31}
+\definecolor{strings}{RGB}{0,128,64}
+\definecolor{numbers}{RGB}{44,45,211}
+\definecolor{identifiers}{RGB}{153,153,0}
+
+\lstset{
+  language=C,
+  numbers=none,
+  basicstyle={\tt\small},
+  stringstyle=\color{strings},
+  commentstyle=\color{comments},
+  keywordstyle={\color{blue}\bfseries},
+  %identifierstyle={\ttfamily\color{identifiers}},
+  emph      = [1]{
+    challengeFunction,secretFunction},
+  emphstyle=[1]{\ttfamily\bfseries\color{blue}},
+  stepnumber=1,                   % the step between two line-numbers.
+  numbersep=10pt,                  % how far the line-numbers are from the code
+  backgroundcolor=\color{white},  % choose the background color. You must add \usepackage{color}
+  showspaces=false,               % show spaces adding particular underscores
+  showstringspaces=false,         % underline spaces within strings
+  showtabs=false,                 % show tabs within strings adding particular underscores
+  tabsize=2,                      % sets default tabsize to 2 spaces
+  captionpos=b,                   % sets the caption-position to bottom
+  breaklines=true,                % sets automatic line breaking
+  breakatwhitespace=true,         % sets if automatic breaks should only happen at whitespace
+  xleftmargin=2em,framexleftmargin=1.5em
+}%
+
+\lstdefinelanguage{none}{
+  identifierstyle=
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\title{Kernel Sanders: CSAW {ESC'19} Final report\\
+}
+
+\author{\IEEEauthorblockN{
+Grant Hernandez\IEEEauthorrefmark{1},
+Claire Seiler\IEEEauthorrefmark{1},
+Owen Flannagan\IEEEauthorrefmark{1},
+Hunter Searle\IEEEauthorrefmark{1},
+Kevin R.B. Butler\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}University of Florida, Gainesville, FL, USA\\ \{grant.hernandez,
+  cseiler, owenflannagan, huntersearle, butler\}@ufl.edu}
+}
+
+\maketitle
+
+\section{Challenge Set A}
+\input{chalA}
+
+\section{Challenge Set B}
+\input{chalB}
+
+\section{Challenge Set C}
+\input{chalC}
+
+\section{Challenge Set D}
+\input{chalD}
+
+\section{Challenge Set E}
+\input{chalE}
+
+\section{Challenge Set F}
+\input{chalF}
+
+%\section*{References}
+%
+%EXAMPLE: Please number citations consecutively within brackets \cite{b1}.
+%
+%\begin{thebibliography}{00}
+%\bibitem{b1} G. Eason, B. Noble, and I. N. Sneddon, ``On certain integrals of Lipschitz-Hankel type involving products of Bessel functions,'' Phil. Trans. Roy. Soc. London, vol. A247, pp. 529--551, April 1955.
+%\end{thebibliography}
+%\vspace{12pt}
+
+\end{document}

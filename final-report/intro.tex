@@ -1,0 +1,32 @@
+To begin our analysis of the given \texttt{qualification.out} object, we start by running the GNU \texttt{file} command on it.
+\begin{lstlisting}[numbers=left,language=none]
+qualification.out: ELF 64-bit LSB executable, x86-64, ... , not stripped
+\end{lstlisting}
+Immediately we know that this is an x86-64 ELF binary executable, which is unstripped, meaning functions should have names.
+Next running \texttt{strings} on the binary (``...'' means snipped text) we see:
+\begin{lstlisting}[numbers=left,language=none]
+...
+Great Job! The flag is what you entered
+The flag is <<shhimhiding>>
+;*3$"
+GCC: (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4
+...
+qualification.cpp
+...
+_Z14secretFunctionv
+...
+_Z17challengeFunctionPc
+\end{lstlisting}
+From the strings, we see a ``good flag'' message, an actual flag, that this binary was written as C++, and two C++ mangled functions.
+
+With initial static analysis out of the way, we can set the file as executable and do some dynamic analysis.
+
+\begin{lstlisting}[language=none]
+$ chmod +x qualification.out
+$ ./qualification.out
+$ ./qualification.out test
+$ ./qualification.out shhimhiding
+\end{lstlisting}
+
+Running the binary with and without arguments (even the flag found via strings) yields no ``goodboy'' message. To investigate further, we start GHIDRA 9.0 to begin our analysis.
+We create a new GHIDRA project and load the binary into it. We open the CodeBrowser tool and perform auto-analysis.
