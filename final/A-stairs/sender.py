@@ -1,8 +1,9 @@
 import serial
 import hashlib
+import sys
+import glob
 
-ser = serial.Serial('/dev/ttyACM0', 2000000)
-
+ser = serial.Serial(glob.glob('/dev/tty.usbmodem*')[0], 2000000)
 
 p = [bytes([108+i+j for j in range(32)]) for i in range(32)]
 k = [bytes([68+i for j in range(3)]) for i in range(16)]
