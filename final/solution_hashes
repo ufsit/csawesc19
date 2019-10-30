@@ -1,17 +1,29 @@
 Challenge A
-lounge:
-closet:
-cafe: 98bc5b1a13fdda3cca488c06ddac0aa5c5449c8a9294a9e5c297806e7faff007
-stairs: 396f4b1cdf1cc2e7680f2a8716a18c887cd489e12232e75b6810e9d5e91426c7
+1 - lounge:
+2 - closet:
+3 - cafe: 98bc5b1a13fdda3cca488c06ddac0aa5c5449c8a9294a9e5c297806e7faff007
+4 - stairs: 396f4b1cdf1cc2e7680f2a8716a18c887cd489e12232e75b6810e9d5e91426c7
 
 Challenge B
-mobile:
-dance: e631b32e3e493c51e5c2b22d1486d401c76ac83e3910566924bcc51b2157c837 (130 pts)
-code: 372ded6746e45ef7c8ad5a22c5738a4b5aa982da66bc8a426aa1cca830d05af3 (50 pts)
-blue:
+5 - mobile:
+6 - dance: e631b32e3e493c51e5c2b22d1486d401c76ac83e3910566924bcc51b2157c837 (130 pts)
+7 - code: 372ded6746e45ef7c8ad5a22c5738a4b5aa982da66bc8a426aa1cca830d05af3 (50 pts)
+8 - blue:
 
 Challenge C
-uno:
-game: 63c0b41f89bbf493ba791c092b3e5473e243b9c16666f1e5eaa82bc52eeb1613 (150 pts)
-break: ae4be3d07679f53cf7fd0ed9669d06bc3b22c5554c81e3bad04986bb7ab91db1 (70 pts)
-recess: 370815b8d8fde829f5c35f893d0b4139d61a775baa4181fcac1fffe014bde9ea (100 pts)
+9  - uno:
+10 - game: 63c0b41f89bbf493ba791c092b3e5473e243b9c16666f1e5eaa82bc52eeb1613 (150 pts)
+11 - break: ae4be3d07679f53cf7fd0ed9669d06bc3b22c5554c81e3bad04986bb7ab91db1 (70 pts)
+12 - recess: 370815b8d8fde829f5c35f893d0b4139d61a775baa4181fcac1fffe014bde9ea (100 pts)
+
+Challenge D
+11 - bounce:
+
+Challenge E
+12 - steel:
+13 - caesar:
+14 - spiral:
+15 - tower:
+
+Challenge F
+17 - spire:
