@@ -106,60 +106,83 @@ class ESCAngr(object):
         self._set_start_symbol("_Z11challenge_16packet")
         addr = self.sym.linked_addr
 
-        for i in self.obj.symbols:
-            if i.demangled_name.startswith("Print::print"):
-                self.proj.hook(i.linked_addr, self.print_hook)
-                print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
+        self._hook_prints()
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY', angr.options.LAZY_SOLVES])
 
-        st = self.proj.factory.blank_state()
-        st.regs.pc = addr
-        st.options.add('SYMBOL_FILL_UNCONSTRAINED_MEMORY')
+        # 5c - 6f, 80 - 83
+        key = b"ESC19-rocks!"
+
+        st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)#st.solver.BVS('select%d' % i, 8))
+        for i in range(0xc):
+            #sym = st.solver.BVS("first_%d" % i, 1*8)
+            #st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, sym)
+            #st.solver.add(sym >= 0xc)
+            #st.solver.add(sym <= 40)
+            if i < 0x8:
+                st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, pack("<b", 0x18+i))
+            else:
+                st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, pack("<b", 0x18+i))
+
+        st.inspect.b('instruction', when=angr.BP_BEFORE, instruction=0x8b9, action=lambda s: print(s.regs.r3))
 
         mgr = self.proj.factory.simgr(st)
         mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x8ee,0x8ef], avoid=[0x912,0x913,0x8c6,0x8c7]))
 
-        embed()
         mgr.run()
 
-        s = mgr.found[0]
-        mgr_final = self.proj.factory.simgr(s)
-        mgr_final.run()
+        if not mgr.found:
+            print("Analysis failed")
+            return
 
+        s = mgr.found[0]
         self.print_table(s)
+
+    def exec_once_lounge(self, state):
+        print(state)
+        mgr = self.proj.factory.simgr(state)
+        mgr.use_technique(angr.exploration_techniques.Explorer(find=[0xc20,0xc21], avoid=[0xc50,0xc51]))
+        mgr.run(n=20)
+        print("DONE " + str(mgr))
+        return [mgr.active, mgr.found]
 
     def solve_lounge(self):
         self._set_start_symbol("_Z11challenge_06packet")
         addr = self.sym.linked_addr
 
-        for i in self.obj.symbols:
-            if i.demangled_name.startswith("Print::print"):
-                self.proj.hook(i.linked_addr, self.print_hook)
-                print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
+        self._hook_prints()
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY'])
 
-        st = self.proj.factory.blank_state()
-        st.regs.pc = addr
-        st.regs.r0 = 0
-        st.regs.r1 = 0
-        st.regs.r2 = 0
-        st.regs.r3 = 0
-        st.regs.r4 = 0
-        st.regs.r5 = 0
-        st.regs.r6 = 0
-        st.regs.r7 = 0
-        st.regs.r8 = 0
-        st.regs.r9 = 0
-        st.regs.r10 = 0
-        st.regs.r11 = 0
-        st.regs.r12 = 0
-        st.options.add('SYMBOL_FILL_UNCONSTRAINED_MEMORY')
+        st.memory.store(WHITE_CARD_START_ADDR+0x4c, st.solver.BVS("input", 16))#b"\xff\xff")
+
         #st.options |= set([angr.options.FAST_MEMORY, angr.options.FAST_REGISTERS])
-        self.hook_card_read(st)
 
         mgr = self.proj.factory.simgr(st)
         mgr.use_technique(angr.exploration_techniques.Explorer(find=[0xc20,0xc21], avoid=[0xc50,0xc51]))
-        mgr.use_technique(angr.exploration_techniques.Veritesting())
 
-        mgr.run(n=1)
+        mgr.run(n=4)
+
+        def gather_results(omgr):
+            mgr.active += omgr[0]
+            mgr.found += omgr[1]
+
+        import time
+
+        pool = Pool(processes=40)
+
+        while not mgr.found:
+            print(mgr)
+            #res = pool.map(self.exec_once, mgr.active)
+
+            if len(mgr.active) == 0:
+                time.sleep(1)
+                continue
+
+            active_st = mgr.active.copy()
+            mgr.drop(stash='active')
+            print("Distributing %d states" % len(active_st))
+            for a in active_st:
+                pool.apply_async(self.exec_once_lounge, args=(a,), callback=gather_results)
+
         embed()
 
         if bool(mgr.errored):
@@ -465,17 +488,18 @@ class ESCAngr(object):
 
         return st
 
+    def no_op(s):
+        print("delay() called")
+        s.regs.pc = s.regs.lr
+
     def _hook_prints(self):
-        def no_op(s):
-            print("delay() called")
-            s.regs.pc = s.regs.lr
 
         for i in self.obj.symbols:
             if i.demangled_name.startswith("Print::print"):
                 self.proj.hook(i.linked_addr, self.print_hook)
                 print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
             elif i.demangled_name.startswith("delay"):
-                self.proj.hook(i.linked_addr, no_op)
+                self.proj.hook(i.linked_addr, ESCAngr.no_op)
                 print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
 
     def solve_recess(self):
