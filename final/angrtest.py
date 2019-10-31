@@ -2,9 +2,12 @@ import angr
 import re
 import argparse
 import sys
+import time
 
 from struct import pack
 from IPython import embed
+
+import multiprocessing
 from multiprocessing import Pool
 
 WHITE_CARD_START_ADDR = 0x7fff0000-0xf
@@ -152,26 +155,23 @@ class ESCAngr(object):
         self._hook_prints()
         st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY'])
 
-        st.memory.store(WHITE_CARD_START_ADDR+0x4c, st.solver.BVS("input", 16))#b"\xff\xff")
-
-        #st.options |= set([angr.options.FAST_MEMORY, angr.options.FAST_REGISTERS])
+        # 2 bytes of input
+        st.memory.store(WHITE_CARD_START_ADDR+0x4c, st.solver.BVS("input", 16))
 
         mgr = self.proj.factory.simgr(st)
         mgr.use_technique(angr.exploration_techniques.Explorer(find=[0xc20,0xc21], avoid=[0xc50,0xc51]))
 
+        # get some initial paths
         mgr.run(n=4)
 
         def gather_results(omgr):
             mgr.active += omgr[0]
             mgr.found += omgr[1]
 
-        import time
-
-        pool = Pool(processes=40)
+        pool = Pool(processes=multiprocessing.cpu_count())
 
         while not mgr.found:
             print(mgr)
-            #res = pool.map(self.exec_once, mgr.active)
 
             if len(mgr.active) == 0:
                 time.sleep(1)
@@ -179,7 +179,9 @@ class ESCAngr(object):
 
             active_st = mgr.active.copy()
             mgr.drop(stash='active')
+
             print("Distributing %d states" % len(active_st))
+
             for a in active_st:
                 pool.apply_async(self.exec_once_lounge, args=(a,), callback=gather_results)
 
@@ -352,98 +354,29 @@ class ESCAngr(object):
         self._set_start_symbol("_Z11challenge_46packet")
         addr = self.sym.linked_addr
 
-        for i in self.obj.symbols:
-            if i.demangled_name.startswith("Print::print"):
-                self.proj.hook(i.linked_addr, self.print_hook)
-                print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
+        self._hook_prints()
 
-        st = self.proj.factory.blank_state()
-        st.regs.r0 = 0
-        st.regs.r1 = 0
-        st.regs.r2 = 0
-        st.regs.r3 = 0
-        st.regs.r4 = 0
-        st.regs.r5 = 0
-        st.regs.r6 = 0
-        st.regs.r7 = 0
-        st.regs.r8 = 0
-        st.regs.r9 = 0
-        st.regs.r10 = 0
-        st.regs.r11 = 0
-        st.regs.r12 = 0
-        st.options |= set(['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
-        st.regs.pc = addr
-        self.hook_card_read(st)
-        mgr = self.proj.factory.simgr(st)
-        mgr.explore(find=[0x1823])
-        #mgr.use_technique(angr.exploration_techniques.DFS())
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
 
-        #st.memory.store(WHITE_CARD_START_ADDR+0x9b, "L")
-
-        #mgr.active[0].solver.eval(mgr.active[0].memory.load(mgr.active[0].regs.r7, 32), cast_to=bytes)
-        #Out[54]: b'solved           mobile abcdefg\x00'
-
-        #In [55]: mgr.active[0].regs.r7
-        #Out[55]: <BV32 0x7ffeff18>
-
-        # Nothing should be unconstrained as we assign it
         target = bytes("solved challenge mobile abcdefg\x00", "ascii")
+        solution = [0x11, 0x10, 0x33, 0x01, 0x00, 0x44, 0x40, 0x44, 0x40, 0x22, 0x05, 0x50, 0x30, 0x22, 0x01]
+        solution = b"".join(pack("B", x) for x in solution)
 
-        assert len(mgr.found) == 1
-        st = mgr.found[0]
+        print(solution)
+        st.memory.store(WHITE_CARD_START_ADDR+0x84, solution)
 
-        for i in range(len(target)):
-            symb = st.solver.BVS('target%d' % i, 8)
-            st.memory.store(0x7ffeff18+i, symb)
-            st.solver.add(symb == target[i])
 
-        mgr.move('found', 'active')
-        mgr.run(n=1)
+        mgr = self.proj.factory.simgr(st)
 
-        def gather_results(omgr):
-            mgr.active += omgr[0]
-            mgr.found += omgr[1]
+        mgr.run()
 
-        import time
+        if not mgr.unconstrained:
+            print("Analysis failed")
+            return
 
-        pool = Pool(processes=40)
+        print(self.read_string(mgr.unconstrained[0], self.obj.symbols_by_name['challHash'].linked_addr))
 
-        while not mgr.found:
-            print(mgr)
-            #res = pool.map(self.exec_once, mgr.active)
-
-            if len(mgr.active) == 0:
-                time.sleep(10)
-                continue
-
-            active_st = mgr.active.copy()
-            mgr.drop(stash='active')
-            print("Distributing %d states" % len(active_st))
-            for a in active_st:
-                pool.apply_async(self.exec_once, args=(a,), callback=gather_results)
-
-        embed()
-
-        found = False
-        trynumber = 0
-        while not found:
-            mgr.explore(find=[0x18fe, 0x18ff])
-
-            print("Try %d" % trynumber)
-            trynumber += 1
-
-            for s in mgr.found:
-                for i in range(len(target)):
-                    symb = s.memory.load(0x7ffeff18+i, 1)
-                    s.solver.add(symb == target[i])
-
-                if s.solver.satisfiable():
-                    print("yes")
-                    self.print_table(s)
-                    found = True
-                    break
-
-            mgr.move('found', 'found_next')
+        self.print_table(mgr.unconstrained[0])
 
     def solve_break(self):
         self._set_start_symbol("_Z12challenge_106packet")
