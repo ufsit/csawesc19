@@ -1,6 +1,6 @@
 #! /bin/bash
 
-PORT="/dev/ttyACM0"
+PORT="/dev/tty.usb"*
 
 ./teensy_loader_cli -mmcu=mk20dx256 -v -s ArduinoISP.ino.hex
 sleep 2
