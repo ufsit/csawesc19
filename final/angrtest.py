@@ -514,6 +514,41 @@ class ESCAngr(object):
         self.print_table(mgr.found[0])
         strout = self.read_string(st, st.regs.r1)
 
+
+    def solve_uno(self):
+        prog = [30, 64, -1, 64, -1, -1, 31, 1, -1, 31, 3, -1, 33, 33, 15, 32, 33, 18, 33, 34, 21, 0, 34, 27, 34, 34, 0, -1, -1, -1, 3, -1, 95, 0, 0]
+        prog_packed = b"".join([pack("<b", x) for x in prog])
+        print(prog_packed)
+
+        self._set_start_symbol("_Z11challenge_86packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+        mgr = self.proj.factory.simgr(st)
+
+        st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
+        st.memory.store(WHITE_CARD_START_ADDR+0x200, prog_packed)
+
+        # Uncomment to see progress of bytes written
+        #st.inspect.b('instruction', when=angr.BP_BEFORE, instruction=0xe81, action=lambda s: embed())
+
+        mgr.explore(find=[0xee3])
+
+        if not mgr.found:
+            print("Analysis failed")
+            return
+
+        challHash = self.read_string(mgr.found[0], 0x1fffa54c)
+
+        print(challHash)
+        if challHash != b'solved challenge uno abcdefghij':
+            print("Chalhash is wrong!")
+            return
+
+        self.print_table(mgr.found[0])
+
     def solve_bounce(self):
         self._set_start_symbol("_Z11challenge_86packet")
         addr = self.sym.linked_addr
@@ -558,7 +593,7 @@ class ESCAngr(object):
 challenges = {
     "A" : ["stairs", "cafe", "closet", "lounge"],
     "B" : ["dance", "code", "mobile"],
-    "C" : ["break", "recess", "game"],
+    "C" : ["uno", "break", "recess", "game"],
     "D" : ["bounce"],
 }
 
