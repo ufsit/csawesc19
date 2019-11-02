@@ -203,7 +203,9 @@ class ESCAngr(object):
 
         for i, row in enumerate(arr):
             eol = "," if i < 63 else "]"
-            output += ["     " + str(row) + ("%s # %x" % (eol, i))]
+            row = ", ".join([(("0x%02x" % x) if x != 0 else "0") for x in row])
+            output += ["     [" + str(row) + ("]%s # %x" % (eol, i))]
+
 
         output += ["a = 0x%x" % ((buttons >> 4) & 0xf)]
         output += ["b = 0x%x" % (buttons & 0xf)]
