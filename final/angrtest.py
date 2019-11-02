@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import angr
 import re
 import argparse
@@ -66,44 +67,37 @@ class ESCAngr(object):
 
         self.print_table(s)
 
-    def check_cafe_hook(self, state):
-        print(state)
-        self.check_cafe_solve(state)
-        embed()
-        state.regs.pc = state.regs.lr
-
-    def check_cafe_solve(self, state):
-        fixed = 'solved challenge cafe abcdefg'
-
-        for i in range(len(fixed)):
-            state.solver.add(state.memory.load(state.regs.r1+i, 1) == ord(fixed[i]))
-
-        strout = self.read_string(state, state.regs.r1)
-        print(repr(strout))
-
-        self.print_table(state)
-
     def solve_cafe(self):
         self._set_start_symbol("_Z11challenge_26packet")
         addr = self.sym.linked_addr
 
-        for i in self.obj.symbols:
-            if i.demangled_name.startswith("Print::println"):
-                self.proj.hook(i.linked_addr, self.check_cafe_hook)
-                print("Check Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
-            elif i.demangled_name.startswith("Print::print"):
-                self.proj.hook(i.linked_addr, self.print_hook)
-                print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
-
-        st = self.proj.factory.blank_state()
-        st.regs.pc = addr
-        st.options.add('SYMBOL_FILL_UNCONSTRAINED_MEMORY')
-        self.hook_card_read(st)
+        self._hook_prints()
+        st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
 
         mgr = self.proj.factory.simgr(st)
         mgr.use_technique(angr.exploration_techniques.Veritesting())
 
         mgr.run()
+
+        if not mgr.unconstrained:
+            print("Analysis failed")
+            return
+
+        s = mgr.unconstrained[0]
+
+        fixed = 'solved challenge cafe abcdefg'
+
+        # address of challResult
+        challResult = 0x1fffa140
+
+        for i in range(len(fixed)):
+            s.solver.add(s.memory.load(challResult+i, 1) == ord(fixed[i]))
+
+        strout = self.read_string(s, challResult)
+        print("ChallResult: " +  repr(strout))
+
+        self.print_table(s)
+        embed()
 
     def solve_closet(self):
         self._set_start_symbol("_Z11challenge_16packet")
