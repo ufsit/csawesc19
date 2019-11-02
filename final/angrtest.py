@@ -106,19 +106,11 @@ class ESCAngr(object):
         self._hook_prints()
         st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY', angr.options.LAZY_SOLVES])
 
-        # 5c - 6f, 80 - 83
+        # this key is already loaded into memory
         key = b"ESC19-rocks!"
 
-        st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)#st.solver.BVS('select%d' % i, 8))
         for i in range(0xc):
-            #sym = st.solver.BVS("first_%d" % i, 1*8)
-            #st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, sym)
-            #st.solver.add(sym >= 0xc)
-            #st.solver.add(sym <= 40)
-            if i < 0x8:
-                st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, pack("<b", 0x18+i))
-            else:
-                st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, pack("<b", 0x18+i))
+            st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, pack("<b", 0x18+i))
 
         st.inspect.b('instruction', when=angr.BP_BEFORE, instruction=0x8b9, action=lambda s: print(s.regs.r3))
 
