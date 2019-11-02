@@ -1,32 +1,35 @@
-To begin our analysis of the given \texttt{qualification.out} object, we start by running the GNU \texttt{file} command on it.
-\begin{lstlisting}[numbers=left,language=none]
-qualification.out: ELF 64-bit LSB executable, x86-64, ... , not stripped
-\end{lstlisting}
-Immediately we know that this is an x86-64 ELF binary executable, which is unstripped, meaning functions should have names.
-Next running \texttt{strings} on the binary (``...'' means snipped text) we see:
-\begin{lstlisting}[numbers=left,language=none]
-...
-Great Job! The flag is what you entered
-The flag is <<shhimhiding>>
-;*3$"
-GCC: (Ubuntu 4.8.4-2ubuntu1~14.04.4) 4.8.4
-...
-qualification.cpp
-...
-_Z14secretFunctionv
-...
-_Z17challengeFunctionPc
-\end{lstlisting}
-From the strings, we see a ``good flag'' message, an actual flag, that this binary was written as C++, and two C++ mangled functions.
+First, to enable collaboration amongst team members, we set up a \ghidra shared
+project on our own server to share reversing progress.
+All relevant challenge binaries were ARM-32 Cortex-M4 (TeensyChallengeSetX.ino.elf).
+These contained all of the \texttt{challenge\_X} functions that we had to reverse.
+The AVR binaries were used for blinking the LEDs, polling the buttons, and displaying to the LCD. It also acted as the I$^{2}$C bus master, with the Teensy acting as a slave with address \texttt{0x01}.
+The single most
+difficult part of reversing these challenges with \ghidra was the broken RFID
+stack variables. \ghidra was unable, for nearly all challenges, to make the
+offsets into the RFID data easily apparent.
 
-With initial static analysis out of the way, we can set the file as executable and do some dynamic analysis.
+TODO WRITE MORE ABOUT ANGR
 
-\begin{lstlisting}[language=none]
-$ chmod +x qualification.out
-$ ./qualification.out
-$ ./qualification.out test
-$ ./qualification.out shhimhiding
-\end{lstlisting}
+To solve this, we used \angr and
+hooked all memory reads and writes. If the R/W fell in the range of the RFID
+data on the stack, we printed \texttt{CARD READ: XX} where XX was the hex
+offset into the card data. This alone saved us from manually counting offsets
+across stack frames.
 
-Running the binary with and without arguments (even the flag found via strings) yields no ``goodboy'' message. To investigate further, we start GHIDRA 9.0 to begin our analysis.
-We create a new GHIDRA project and load the binary into it. We open the CodeBrowser tool and perform auto-analysis.
+\vspace{0.5cm}
+\noindent The highlights of our report are:
+\begin{itemize}
+  \item We employed concolic analysis using \angr to avoid reversing as many challenges as possible
+  \item We achieved arbitrary code execution on challenge \mbox{D-bounce}
+\end{itemize}
+
+All hashes for our solved challenges are in the Appendix under \autoref{sec:hashes}.
+We were able to solve TODO/18 challenges for a total of TODO points.
+
+
+% \begin{lstlisting}[language=none]
+% $ chmod +x qualification.out
+% $ ./qualification.out
+% $ ./qualification.out test
+% $ ./qualification.out shhimhiding
+% \end{lstlisting}

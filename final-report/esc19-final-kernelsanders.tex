@@ -11,6 +11,7 @@
 \usepackage{xspace}
 \usepackage{listings}
 \usepackage{lmodern}
+\usepackage{verbatim}
 
 % (2) specify encoding
 \usepackage[T1]{fontenc}
@@ -28,6 +29,9 @@
 % Note/todo commands
 \newcommand{\needref}{\textcolor{blue}{[ref?]}}
 \newcommand\grant[1]{{\color{purple}[Grant: #1]}}
+
+\newcommand{\angr}{\textsc{angr}\xspace}
+\newcommand{\ghidra}{\textsc{ghidra}\xspace}
 
 % Listing configuration
 \definecolor{comments}{RGB}{74,131,31}
@@ -67,20 +71,23 @@
 
 \begin{document}
 
-\title{Kernel Sanders: CSAW {ESC'19} Final report\\
+\title{Kernel Sanders: CSAW {ESC'19} Final Report\\
 }
 
 \author{\IEEEauthorblockN{
 Grant Hernandez\IEEEauthorrefmark{1},
-Claire Seiler\IEEEauthorrefmark{1},
-Owen Flannagan\IEEEauthorrefmark{1},
 Hunter Searle\IEEEauthorrefmark{1},
+Owen Flannagan\IEEEauthorrefmark{1},
+Claire Seiler\IEEEauthorrefmark{1},
 Kevin R.B. Butler\IEEEauthorrefmark{1}}
 \IEEEauthorblockA{\IEEEauthorrefmark{1}University of Florida, Gainesville, FL, USA\\ \{grant.hernandez,
-  cseiler, owenflannagan, huntersearle, butler\}@ufl.edu}
+  huntersearle, owenflannagan, cseiler, butler\}@ufl.edu}
 }
 
 \maketitle
+
+\section{Introduction}
+\input{intro}
 
 \section{Challenge Set A}
 \input{chalA}
@@ -99,6 +106,13 @@ Kevin R.B. Butler\IEEEauthorrefmark{1}}
 
 \section{Challenge Set F}
 \input{chalF}
+
+\onecolumn
+\newpage
+\appendix
+\section*{Challenge Hashes}
+\label{sec:hashes}
+\verbatiminput{../final/solution_hashes}
 
 %\section*{References}
 %
