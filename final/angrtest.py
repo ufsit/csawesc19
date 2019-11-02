@@ -366,6 +366,25 @@ class ESCAngr(object):
 
         self.print_table(mgr.unconstrained[0])
 
+    def solve_blue(self):
+        self._set_start_symbol("_Z11challenge_76packet")
+        addr = self.sym.linked_addr
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+        st.memory.store(st.regs.sp+0x200, b"AAAABBBB")
+        st.memory.store(st.regs.sp+0x300, b"\x00"*0x20)
+
+        blake_256_init = self.proj.factory.callable(self.obj.symbols_by_name["blake_256_init"].linked_addr, concrete_only=True, base_state=st)
+        blake_256_init(st.regs.sp)
+
+        blake_256_update = self.proj.factory.callable(self.obj.symbols_by_name["blake_256_update"].linked_addr, concrete_only=True, base_state=blake_256_init.result_state)
+        blake_256_update(st.regs.sp, st.regs.sp+0x200, 8)
+
+        blake_256_final = self.proj.factory.callable(self.obj.symbols_by_name["blake_256_final"].linked_addr, concrete_only=True, base_state=blake_256_update.result_state)
+        blake_256_final(st.regs.sp, st.regs.sp+0x300)
+
+        embed()
+
     def solve_break(self):
         self._set_start_symbol("_Z12challenge_106packet")
         addr = self.sym.linked_addr
@@ -537,7 +556,7 @@ class ESCAngr(object):
 
 challenges = {
     "A" : ["stairs", "cafe", "closet", "lounge"],
-    "B" : ["dance", "code", "mobile"],
+    "B" : ["dance", "code", "mobile", "blue"],
     "C" : ["uno", "break", "recess", "game"],
     "D" : ["bounce"],
 }
