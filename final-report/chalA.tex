@@ -137,12 +137,109 @@ The two solutions we found for this challenge are in \autoref{sec:hashes}.
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Closet}
-Hash: 293f7b60b994512db99836ae7d5bab88b2d0089f90fcf6d51b95b374200dc20f
+With the basic \angr framework created for the previous challenge, we were able to easily support a new challenge. All that needed to be changed was the initial starting function address. Unlike the previous challenge, symbolic execution with \angr did not fare so well.
+We encountered constraint explosion due to a symbolic memory read on line 18 below:
+
+\begin{lstlisting}[numbers=left,xleftmargin=2em]
+char table[128];
+char key[12] = "ESC19-rocks!"
+bool good = true;
+
+for (int i = 0x5c; i < 0x84; i++) {
+  if (i < 0x70) {
+    // stored in table at +0x6c
+    table[i + 0x10] = RFID[i];
+    Print::println((Print *)&Serial,i + -0x5c);
+  } else if (0x7f < i) {
+    table[i] = RFID[i];
+    Print::println((Print *)&Serial, i + -0x6c);
+  }
+}
+
+for (int i = 0; i < 12; i++) {
+  // this causes angr to blow up as it is a symbolic index
+  if (key[i] != table[(uint)table[i + 0x6c] + 0x6c])
+    good = false;
+}
+...
+\end{lstlisting}
+
+Assuming the first \texttt{table} load was symbolic, then the next table load's address would be symbolic. \angr instead of loading from a single address, loads from 256 addresses within the table \emph{simultaneously}. This causes the result of the last table lookup to be the disjunction of 256 separate memory loads. These yield massive constraints which get passed on to the Z3\needref constraint solver, which greatly slows down. The time to determine the satisfiability increases each time through the loop. This ends up taking so long that 99\% of the time executing is spent in the solver. We tried to solve this by preconstraining our symbolic card input to resonable values, but this still causes slow downs and final card data outputs to be wrong. Instead for this challenge, we manually solved it by dumping the concrete stack data in \angr and measuring the offset from the table load to the already in-memory key \texttt{ESC19-rocks!}. This offset was \texttt{0x18+i}. The two lines needed to solve this concretely with \angr are below:
+
+\begin{lstlisting}[language=python]
+for i in range(0xc):
+   st.memory.store(WHITE_CARD_START_ADDR+0x5c+i, pack("<b", 0x18+i))
+\end{lstlisting}
+
+From a security perspective, it should be noted that we are able to read outside the bounds of the \texttt{table} variable. In this case, it was relevant as the key was outside of the table (we did not need to pass it in via the RFID table).
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Cafe}
-Hash: 98bc5b1a13fdda3cca488c06ddac0aa5c5449c8a9294a9e5c297806e7faff007
+The cafe challenge involved a linear transformation of a template challenge hash with multiple XORs and various logic. Like previous challenges, we worked smart and avoided any reversing and just threw \angr at the challenge. The catch for this challenge versus others is that there is no dependent branch that indicates whether the challenge was solved or not. Instead the template challenge hash is transformed in various ways and MUST equal the string \texttt{solved challenge cafe abcdefg}.
+
+We solved this challenge using \angr in symbolic mode. At this point, we wrapped all our \angr usage in a class with helpers to aid the development. For more information read the \texttt{angresc.py} file included with the challenge submission. The relevant lines from the solver are included below:
+
+\begin{lstlisting}[language=python]
+self._set_start_symbol("_Z11challenge_26packet")
+addr = self.sym.linked_addr
+
+self._hook_prints()
+st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
+
+mgr = self.proj.factory.simgr(st)
+# We used Veritesting to aggressively merge states and save execution time
+# Without this, execution took much more time
+mgr.use_technique(angr.exploration_techniques.Veritesting())
+
+mgr.run()
+
+# The final state becomes unconstrained with it returns from the challenge
+# function as the saved LR is left as symbolic (intentionally)
+if not mgr.unconstrained:
+    print("Analysis failed")
+    return
+
+s = mgr.unconstrained[0]
+
+fixed = 'solved challenge cafe abcdefg'
+
+# address of challResult seen in GHIDRA
+challResult = 0x1fffa140
+
+# Constrain the hash
+for i in range(len(fixed)):
+    s.solver.add(s.memory.load(challResult+i, 1) == ord(fixed[i]))
+
+# Eval the string at the address given the constraints
+strout = self.read_string(s, challResult)
+print("ChallResult: " +  repr(strout))
+
+self.print_table(s)
+\end{lstlisting}
+
+The highlights of this challenge are the use of Veritesting\needref and additional constraints to get the desired output. Veritesting enables aggressive state merging, shoving more responsibility to the solver. At the end of the function only a single symbolic state with all the possible symbolic constraints for each byte in the challenge hash OR'd with each out. This state reaches the end of the function and becomes unconstrained as its saved LR is symbolic to prevent returns from the challenge function. Then using the single unconstrained path, we add additional constraints to the challenge hash variable gleaned from \ghidra to yield the correct card table upon printing.
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Stairs}
-Hash: 396f4b1cdf1cc2e7680f2a8716a18c887cd489e12232e75b6810e9d5e91426c7
+We were given the solution for stairs, but we solved it with \angr anyways.
+
+\begin{lstlisting}[language=python]
+self._set_start_symbol("_Z11challenge_36packet")
+addr = self.sym.linked_addr
+
+self._hook_prints()
+st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
+
+mgr = self.proj.factory.simgr(st)
+mgr.use_technique(angr.exploration_techniques.Explorer(find=[0xf61], avoid=[0xf85,0xf39]))
+
+mgr.run()
+
+s = mgr.found[0]
+mgr_final = self.proj.factory.simgr(s)
+mgr_final.run()
+
+self.print_table(s)
+\end{lstlisting}
+
+\noindent No issues were experienced with solving this with \angr.
