@@ -1,11 +1,148 @@
 \subsection{Lounge}
-Hash: 643a6fa20b171fdf3a9e7e1975ce62892fde9cecf2056a73d85fa2d0802d3000
+\label{sec:lounge}
+Lounge was, at first glance, a difficult challenge due to all of the emulated floating point instructions. Further reversing revealed that only two bytes of card data are used to determine the win condition of \texttt{a * b == 0x18af}. This means the keyspace is $2^{16}$ -- an easily bruteforceable amount. To enable us to bruteforce without manually reflashing card data, we used \angr for dynamic analysis. To start, we created an \angr project:
 
+\begin{lstlisting}[language=python]
+import angr
+proj = angr.Project("A/TeensyChallengeSetA.ino.elf")
+\end{lstlisting}
+
+Then we created a \texttt{blank\_state}, disabled symbolic memory, set the starting PC to \texttt{challenge\_0}, and explored until the goodboy or end of the function:
+
+\begin{lstlisting}[language=python]
+st = proj.factory.blank_state()
+st.regs.pc = proj.loader.main_object.symbols_by_name["_Z11challenge_06packet"].linked_addr
+st.options |= set(["ZERO_FILL_UNCONSTRAINED_MEMORY"])
+mgr = self.proj.factory.simgr(st)
+mgr.use_technique(angr.exploration_techniques.Explorer(find=[0xc21], avoid=[0xc51]))
+mgr.run()
+\end{lstlisting}
+
+This performs purely concrete execution until an address in the \texttt{find}
+or \texttt{avoid} sets is found. In this case, because the RFID data was
+assumed to be zero, the SimulationManager ends with one state in the ``avoid'' stash.
+This run took exactly 30 seconds, which is quite a slowdown compared to a real
+execution environment. This is because \angr interprets VEX Intermediate
+Representation (IR) instead of native machine code, in addition to performing
+expensive memory and register bookkeeping. This can incur slowdowns of 100 -
+1000x, depending on the instructions being emulated. To alievate this slowdown,
+\angr provides addtional execution engines, such as Unicorn\needref, which
+executes native instructions, to burn through concrete instruction traces.
+Unfortunately, \angr's version of Unicorn \emph{does not}\needref support ARM,
+preventing this speedup.
+
+With these constraints, it looked as if concrete bruteforcing with \angr would be too expensive. Ironically, switching to symbolic execution let us discover more than one solution to this problem in less than two hours of wall-clock time. Switching to symbolic execution involved investigating which offsets into the card data were being read by the challenge function. To do this, we hooked all memory reads during execution and printed when a read address fell in the range of the RFID card data on the local stack frame:
+
+\begin{lstlisting}[language=python]
+# Determined by breakpointing in angr and correlating to the output of
+# `debugPrintPacket'
+WHITE_CARD_START_ADDR = 0x7fff0000-0xf
+WHITE_CARD_SZ = 16*64
+WHITE_CARD_END_ADDR = WHITE_CARD_START_ADDR + WHITE_CARD_SZ
+BUTTON_OFFSET = WHITE_CARD_START_ADDR + WHITE_CARD_SZ + 48
+
+def print_card_offsets(state):
+    expr = state.inspect.mem_read_address
+    # the address could be symbolic, so get 'a' solution
+    expr_val = state.solver.eval(expr)
+
+    if expr_val >= WHITE_CARD_START_ADDR and expr_val <= WHITE_CARD_END_ADDR:
+        offset = expr_val - WHITE_CARD_START_ADDR
+        print("CARD READ: %x (%s)" % (offset, str(expr)))
+    elif expr_val == BUTTON_OFFSET:
+        print("!!!!!! BUTTON READ !!!!!!")
+
+st.inspect.b('mem_read', when=angr.BP_AFTER, action=print_card_offsets)
+\end{lstlisting}
+
+The \texttt{WHITE\_CARD\_START\_ADDR} was determined by manual inspection by stepping through execution with \angr. We enable this breakpoint on every challenge we solve going forward.
+In this case, the card offsets were \texttt{0x4c} and \texttt{0x4d}. Once we had determined these, we were able to set these offsets as symbolic variables:
+
+\begin{lstlisting}[language=python]
+st.memory.store(WHITE_CARD_START_ADDR+0x4c, st.solver.BVS("input1", 8))
+st.memory.store(WHITE_CARD_START_ADDR+0x4d, st.solver.BVS("input2", 8))
+\end{lstlisting}
+
+These are the only variables in memory that we made symbolic (the \texttt{ZERO\_FILL\_UNCONSTRAINED\_MEMORY} ensures this).
+We also track when the button values are read by a challenge function. This offset was determined by looking at the static RFID structure in \ghidra.
+Next, to speed up the execution process, we added lightweight parallelism. We executed until we received a found state with the Explorer PathTechnique shown earlier:
+
+\begin{lstlisting}[language=python]
+from multiprocessing import Pool, cpu_count
+
+...
+
+def exec_once_lounge(self, state):
+    """ Executed in another process """
+    mgr = self.proj.factory.simgr(state)
+    mgr.run(n=20)
+    return [mgr.active, mgr.found]
+
+def join_results(omgr):
+    mgr.active += omgr[0]
+    mgr.found += omgr[1]
+
+# get some initial paths
+mgr.run(n=4)
+
+pool = Pool(processes=cpu_count())
+
+while not mgr.found:
+    print(mgr)
+
+    if len(mgr.active) == 0:
+        time.sleep(1)
+        continue
+
+    active_st = mgr.active.copy()
+    mgr.drop(stash='active')
+
+    print("Distributing %d states" % len(active_st))
+
+    for a in active_st:
+        pool.apply_async(exec_once_lounge, args=(a,), callback=join_results)
+\end{lstlisting}
+
+Running the above code on dual Intel Xeon CPU E5-2630 v4 @ 2.20GHz CPUS with 40 cores total, we were able to find two paths, at which point the execution halted. To help pretty-print the card data table and buttons, we designed a helper that evaluates the symbolic or concrete card data from an execution state:
+
+\begin{lstlisting}[language=python]
+def print_table(self, state):
+    table = state.solver.eval(state.memory.load(WHITE_CARD_START_ADDR, WHITE_CARD_SZ), cast_to=bytes)
+    buttons = state.solver.eval(state.memory.load(BUTTON_OFFSET, 1), cast_to=int)
+
+    arr = []
+    for i in range(64):
+        arr += [[c for c in table[i*16:(i+1)*16]]]
+
+    output = []
+    output += ["#     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f"]
+    output += ["p = ["]
+
+    for i, row in enumerate(arr):
+        eol = "," if i < 63 else "]"
+        row = ", ".join([(("0x%02x" % x) if x != 0 else "0") for x in row])
+        output += ["     [" + str(row) + ("]%s # %x" % (eol, i))]
+
+
+    output += ["a = 0x%x" % ((buttons >> 4) & 0xf)]
+    output += ["b = 0x%x" % (buttons & 0xf)]
+
+    print("\n".join(output))
+\end{lstlisting}
+
+Calling \texttt{print\_table} allows us to create \texttt{sender.py} files by just copying and pasting the result. We also have a mode to directly program a card if \angr is run on the local machine.
+
+As we did not need to reverse engineer this challenge at all, except to find the goodboy and badboy basic block addresses (0xc21 and 0xc51), no discussion is necessary and if this kind of ``lock'' was used in the real world, it would quite ineffective as the key is too small.
+The two solutions we found for this challenge are in \autoref{sec:hashes}.
+
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Closet}
 Hash: 293f7b60b994512db99836ae7d5bab88b2d0089f90fcf6d51b95b374200dc20f
 
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Cafe}
 Hash: 98bc5b1a13fdda3cca488c06ddac0aa5c5449c8a9294a9e5c297806e7faff007
 
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Stairs}
 Hash: 396f4b1cdf1cc2e7680f2a8716a18c887cd489e12232e75b6810e9d5e91426c7

@@ -10,11 +10,13 @@ offsets into the RFID data easily apparent.
 
 TODO WRITE MORE ABOUT ANGR
 
+TODO MENTION THAT SYMBOLS INCLUDED MADE THIS EASIER
+
 To solve this, we used \angr and
 hooked all memory reads and writes. If the R/W fell in the range of the RFID
 data on the stack, we printed \texttt{CARD READ: XX} where XX was the hex
 offset into the card data. This alone saved us from manually counting offsets
-across stack frames.
+across stack frames. More details are shown in \autoref{sec:lounge}.
 
 \vspace{0.5cm}
 \noindent The highlights of our report are:
