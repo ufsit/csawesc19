@@ -8,4 +8,11 @@ We were unable to solve this challenge.
 We were unable to solve this challenge.
 
 \subsection{Tower}
-We were unable to solve this challenge.
+Examining the challenge showed it was comparing against a SHA-256 hash again, but this time with an input length of 13. Even if the password was only lower-case letters, this would require more than $2 x 10^{18}$ hashes -- far exceeding a bruteforceable limit. There was a base64 encoded string above the hashing that decoded to `ht'. We assumed this stood for hash table and wasted time looking for one. We also used ocl-hashcat with as many wordlists and rule sets as we could given the time, but no matches were found. Further investigation showed that there were more base64 strings encoded throughout. We collected and decoded them all below:
+
+\begin{lstlisting}[language=python]
+parts = ['ht', 'tps', 'geW', '://pas', '.com/', 'Ve', 'in', 'teb', 'mJP']
+\end{lstlisting}
+
+We rearrainging them into \url{https://pastebin.com/VegeWmJP}
+which led to the password \texttt{ndixlelxivnwl}! We burned this on to the card starting at offset 0x180 and got the solve.
