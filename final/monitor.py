@@ -4,7 +4,6 @@ import sys
 import glob
 
 while True:
-    print("--------- POLLING -----------")
     devices = glob.glob('/dev/tty.usbmodem*')
     if len(devices) == 0:
         continue
@@ -16,7 +15,7 @@ while True:
 
         print("--------- CONNECTED TO %s-----------" % device)
         while True:
-            sys.stderr.write(ser.read(1024))
+            sys.stdout.write(ser.read(10))
 
     except serial.serialutil.SerialException:
         print("--------- EXCEPTION -----------")

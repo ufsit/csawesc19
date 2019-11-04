@@ -1,6 +1,6 @@
 \subsection{Mobile}
-Hash: 68514b8771e5894c799f540855afbc36ef70db34d274a64a8d4271bc1f188379
-This challenge involved a simple algorithm that, based on the values of an array through which it iterated, would select characters from a lookup table (LUT) containing the ASCII alphabet. The most important code is the following: 
+This challenge involved a simple algorithm that, based on the values of an array through which it iterated, would select characters from a lookup table (LUT) containing the ASCII alphabet. The most important code is the following:
+
 \begin{lstlisting}
 lut_it = 0;
 hash_it = 7;
@@ -23,15 +23,38 @@ for(int i = 1; i < 0x1e; i++){
 		}
 	}
 }
-
 \end{lstlisting}
-In order to select the nth character from the LUT, \texttt{lut\_it} should be $n\%3$ and indexes[i-1] should be $n/3$. To achieve this, we set an array with $n\%3+1$ instances of the value $n/3$, followed by a single zero. This pattern was repeated for each character that was needed to achieve the correct output message. 
+
+In order to select the nth character from the LUT, \texttt{lut\_it} should be $n\%3$ and indexes[i-1] should be $n/3$. To achieve this, we set an array with $n\%3+1$ instances of the value $n/3$, followed by a single zero. This pattern was repeated for each character that was needed to achieve the correct output message. \angr was attempted to be used for this, but due to the symbolic read similar to A-closet, we opted for a manual reverse engineering approach.
 
 \subsection{Dance}
-Hash: e631b32e3e493c51e5c2b22d1486d401c76ac83e3910566924bcc51b2157c837
+Previous challenges had been self-contained, but Dance employed a library to perform Blake-256 hashes. It should be noted that \angr is unable to solve any challenge involving cryptographically \emph{strong} hash functions. This is because symbolically executing a  hash function would pass unsolvable constraints to the underlying constraint solving engine. If the engine \emph{was} able to deduce a solution, this would constitute a break of the hash function.
+
+To solve the challenge without \angr, the correct 8-character password needed to be passed in.
+The function performs a hash of this input and compares it against a fixed digest.
+To determine if this hash was already cracked, we reconstituted it from the decompiled \ghidra output: \texttt{5e884898da28047151d0e56f8dc629 2773603d0d6aabbdd62a11ef721d1542d8}. Google'ing this hash lead to many hash cracking websites that showed this was infact a SHA-256 hash of the word ''password''. Placing this at the starting offset of 0x93 led to the solve.
 
 \subsection{Code}
-Hash: 372ded6746e45ef7c8ad5a22c5738a4b5aa982da66bc8a426aa1cca830d05af3
+Like the previous challenge, Code involved a hash function \texttt{H45H}. Examining the functions for constants and digest size indicated that this was MD5. The input to MD5 was the string ``imjustrandomdatathathasnomeaningwhatsoever!'' and a single character from the RFID card at offset 0x9b. The digest was compared to a fixed hexstring. A quick python brute forcer was written to find the correct byte:
+
+\begin{lstlisting}[language=python]
+import struct
+import hashlib
+
+target = "242b461d0b97cca55e5d62372b770ab4"
+
+assert len(target) == 32
+for i in range(256):
+    inp = "imjustrandomdatathathasnomeaningwhatsoever!" + struct.pack("B", i)
+    res = hashlib.md5(inp).hexdigest()
+    assert len(res) == len(target)
+    if res == target:
+        print(inp, i)
+        break
+\end{lstlisting}
+
+The correct byte was `L'. This led to the solve.
+There was a base64 string as a hint, but all it said was ``berger king''. It's unclear how this was a hint.
 
 \subsection{Blue}
-We were unable to solve this challenge.
+We were unable to solve this challenge. We tried using ocl-hashcat with many rules/wordlists to get the 8-character password, but to no avail.
