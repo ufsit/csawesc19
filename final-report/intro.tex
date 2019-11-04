@@ -10,7 +10,7 @@ offsets into the RFID data easily apparent.
 
 %TODO WRITE MORE ABOUT ANGR
 %TODO MENTION THAT SYMBOLS INCLUDED MADE THIS EASIER
-To assist us with the problem of stack addresses, we used \angr, a python framework for analyzing binaries. In order to analyze binaries, \angr lifts the file into Valgrind's VEX intermediate representation (IR), then uses both static and dynamic ("concolic") analysis. We used \angr to hook all memory reads and writes. If the R/W fell in the range of the RFID
+To assist us with the problem of stack addresses, we used \angr, a python framework for analyzing binaries. In order to analyze binaries, \angr lifts the file into Valgrind's VEX intermediate representation (IR), then uses both static and dynamic (``concolic'') analysis. We used \angr to hook all memory reads and writes. If the R/W fell in the range of the RFID
 data on the stack, we printed \texttt{CARD READ: XX} where XX was the hex
 offset into the card data. This alone saved us from manually counting offsets
 across stack frames. Beyond finding the address of card reads, \angr allowed us to automatically solve many of the simpler challenges. More details are shown in \autoref{sec:lounge}.
@@ -23,7 +23,7 @@ across stack frames. Beyond finding the address of card reads, \angr allowed us 
 \end{itemize}
 
 All hashes for our solved challenges are in the Appendix under \autoref{sec:hashes}.
-We were able to solve TODO/18 challenges for a total of TODO points.
+We were able to solve 16/18 challenges for a total of 1810 points.
 Our video demo is available at \url{https://drive.google.com/open?id=1Dxu0LSNhNxHRTTTYGJKsosiagBaUCiCX}
 
 

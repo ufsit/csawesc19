@@ -91,7 +91,7 @@ We were unable to solve this challenge due to time constraints.
 This challenge was easily solved by \angr and did not require any reversing:
 
 \begin{lstlisting}[language=python]
-st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY'])⋅
+st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY'])
 mgr = self.proj.factory.simgr(st)
 
 st.memory.store(WHITE_CARD_START_ADDR+0x18d, st.solver.BVS("input", 8*4))

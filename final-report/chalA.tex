@@ -218,7 +218,7 @@ print("ChallResult: " +  repr(strout))
 self.print_table(s)
 \end{lstlisting}
 
-The highlights of this challenge are the use of Veritesting\href{https://github.com/angr/angr/blob/master/angr/analyses/veritesting.py} and additional constraints to get the desired output. Veritesting enables aggressive state merging, shoving more responsibility to the solver. At the end of the function only a single symbolic state with all the possible symbolic constraints for each byte in the challenge hash OR'd with each out. This state reaches the end of the function and becomes unconstrained as its saved LR is symbolic to prevent returns from the challenge function. Then using the single unconstrained path, we add additional constraints to the challenge hash variable gleaned from \ghidra to yield the correct card table upon printing.
+The highlights of this challenge are the use of Veritesting~\footnote{https://github.com/angr/angr/blob/master/angr/analyses/veritesting.py} and additional constraints to get the desired output. Veritesting enables aggressive state merging, shoving more responsibility to the solver. At the end of the function only a single symbolic state with all the possible symbolic constraints for each byte in the challenge hash OR'd with each out. This state reaches the end of the function and becomes unconstrained as its saved LR is symbolic to prevent returns from the challenge function. Then using the single unconstrained path, we add additional constraints to the challenge hash variable gleaned from \ghidra to yield the correct card table upon printing.
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
 \subsection{Stairs}
