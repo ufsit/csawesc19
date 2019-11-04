@@ -1,3 +1,7 @@
+"""
+Grant Hernandez - OISC Assembler
+ - Kernel Sanders, CSAW ESC'2019
+"""
 import argparse
 
 import re

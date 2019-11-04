@@ -1,12 +1,88 @@
 \subsection{Uno}
-Hash: 4842370a583df2fd6328d4a30b09c6bb58d0df767691872b7263e01aed9651cd
+To start, the hint for this challenge was ``Is OISC 1337?''. Looking up OISC lead to the \href{https://en.wikipedia.org/wiki/One_instruction_set_computer}{One Instruction Set Computer wikipedia article}. From previous experience, we know that any arbitrary computation could be created with a \texttt{subleq} instruction. This instruction performs a subtraction of two memory operands and branches if their result is less than or equal to zero. Reading, retyping, and renaming in \ghidra confirmed that this was the instruction set being used:
+
+\begin{lstlisting}
+int MEM[0x5f];
+// each char +3 from "solved ..."
+// need to -3 to restore
+char * TABLE = "vroyhg#fkdoohqjh#xqr#defghijklm";
+
+// initialize memory
+for (int i = 0; i < 0x5f; i++) {
+  if (i < 0x30) MEM[i] = (int)RFID[0x200+i];
+  else if (i < 0x40) MEM[i] = (int)RFID[0x240+i];
+  else MEM[i] = (int)TABLE[i];
+}
+
+while ((hashAddr = hashAddrCpy, PREV_PC = PC, -1 < PC && (PC < 0x3d))) {
+  PC_1 = PC + 1;
+  PC = PC_1;
+  CMP1 = MEM[PREV_PC];
+  PC = PREV_PC + 2;
+  CMP2 = MEM[PC_1];
+  PC = PREV_PC + 3;
+  BRANCH_PC = MEM[PREV_PC + 2];
+  if (CMP1 == -1) break;
+  if ((CMP2 == -1) && (hashAddrCpy < 0x1f)) {
+    hashAddrCpy = hashAddrCpy + 1;
+    challHash[hashAddr] = (char)MEM[CMP1];
+  }
+  else {
+    // SUBLEQ OISC
+    MEM[CMP2] = MEM[CMP2] - MEM[CMP1];
+    if (MEM[CMP2] < 1) {
+      PC = BRANCH_PC;
+    }
+  }
+}
+\end{lstlisting}
+
+The trick for this challenge was that the challHash was uninititialized and had to be assigned to by the OISC loop. Luckily, a transformed version of the output was placed into the MEM region at offset 0x40. This was loaded from a fixed table and was just the ``solved'' string with a character shift of +3. Good thing we have instructions dedicated to subtracting!
+
+Next began the task of writing a \texttt{subleq} program to shift and store the string. To aid development, we created two-pass a python assembler (available under solutions/C-und-8/asm.py). Our resulting subleq assembly was the following:
+
+\lstinputlisting[language={[x86masm]Assembler}]{../final/C-uno-8/fix.S}
+
+Compiling this yielded [30, 64, -1, 64, -1, -1, 31, 1, -1, 31, 3, -1, 33, 33, 15, 32, 33, 18, 33, 34, 21, 0, 34, 27, 34, 34, 0, -1, -1, -1, 3, -1, 95, 0, 0] for a total length of 35 words. This was written to card offset 0x200 as bytes and the challenge was solved.
+\angr was used to test and debug the concrete solution without reflashing the card for each iteration.
 
 \subsection{Game}
-Hash: 63c0b41f89bbf493ba791c092b3e5473e243b9c16666f1e5eaa82bc52eeb1613
-Our first clue in solving this challenge was a function called findBestMove. This suggested to us that the solution would require putting game moves onto the card in order to play against the program. Within the findBestMove function is another function called minimax, which is a common algorithm for solving simple games. An examination of minimax made it clear that the game being played is tic-tac-toe. The original board state is saved in a variable in the challenge function. The game begins with the program having moved twice, and the keycard having moved once. Therefore, the keycard moves first after being scanned. It was a simple matter to plan out our moves to ensure that the keycard ties with the program, and thus beating the challenge. 
+Our first clue in solving this challenge was a function called \texttt{findBestMove}. This suggested to us that the solution would require putting game moves onto the card in order to play against the program. Within the \texttt{findBestMove} function is another function called \texttt{minimax}, which is a common algorithm for finding optimimal moves in simple games. An examination of \texttt{minimax} made it clear that the game being played is tic-tac-toe. The original board state is saved in a variable in the challenge function. The game begins with the program having moved twice (player X), and the keycard (player O) having moved once:
+
+\begin{verbatim}
+xx_
+_o_
+___
+\end{verbatim}
+
+Therefore, the keycard moves first after being scanned. It was a simple matter to plan out our moves to ensure that the keycard ties with the program. The sequence of moves were read in starting at offset 0x9c. The move encoding was each byte was a move with the top nibble being the row and the bottom nibble being the column. The moves to tie were [r, c] (0, 2), (1, 0), and (2, 2). This left the board in the state of a tie, leading to the win condition.
 
 \subsection{Break}
-Hash: ae4be3d07679f53cf7fd0ed9669d06bc3b22c5554c81e3bad04986bb7ab91db1
+This challenge was aptly named. \angr chewed through it.
+
+\begin{lstlisting}[language=python]
+st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])
+
+mgr = self.proj.factory.simgr(st)
+# explore to the goodboy
+mgr.explore(find=[0x11b9])
+
+self.print_table(mgr.found[0])
+\end{lstlisting}
+
+\noindent The offsets 0x9f and 0xa0 were set to one and the buttons set to a = 0x4, b = 0x6.
 
 \subsection{Recess}
-Hash: 370815b8d8fde829f5c35f893d0b4139d61a775baa4181fcac1fffe014bde9ea
+This challenge was \emph{also} aptly named.
+
+\begin{lstlisting}[language=python]
+st = self._get_start_state(addr, ['SYMBOL_FILL_UNCONSTRAINED_MEMORY'])⋅
+mgr = self.proj.factory.simgr(st)
+
+# explore to the goodboy
+mgr.explore(find=[0x1291])
+
+self.print_table(mgr.found[0])
+\end{lstlisting}
+
+\noindent The offsets 0xa1 - 0xa4 were set to the string "g00d" to get the solve.
