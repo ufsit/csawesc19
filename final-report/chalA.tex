@@ -26,10 +26,11 @@ execution environment. This is because \angr interprets VEX Intermediate
 Representation (IR) instead of native machine code, in addition to performing
 expensive memory and register bookkeeping. This can incur slowdowns of 100 -
 1000x, depending on the instructions being emulated. To alievate this slowdown,
-\angr provides addtional execution engines, such as Unicorn\needref, which
+\angr provides addtional execution engines, such as Unicorn\href{http://www.unicorn-engine.org/}, which
 executes native instructions, to burn through concrete instruction traces.
-Unfortunately, \angr's version of Unicorn \emph{does not}\needref support ARM,
+Unfortunately, \angr's version of Unicorn \emph{does not} support ARM,
 preventing this speedup.
+%I couldn't find a reference for Unicorn not supporting ARM
 
 With these constraints, it looked as if concrete bruteforcing with \angr would be too expensive. Ironically, switching to symbolic execution let us discover more than one solution to this problem in less than two hours of wall-clock time. Switching to symbolic execution involved investigating which offsets into the card data were being read by the challenge function. To do this, we hooked all memory reads during execution and printed when a read address fell in the range of the RFID card data on the local stack frame:
 
