@@ -37,9 +37,9 @@ while ((hashAddr = hashAddrCpy, PREV_PC = PC, -1 < PC && (PC < 0x3d))) {
 }
 \end{lstlisting}
 
-The trick for this challenge was that the challHash was uninititialized and had to be assigned to by the OISC loop. Luckily, a transformed version of the output was placed into the MEM region at offset 0x40. This was loaded from a fixed table and was just the ``solved'' string with a character shift of +3. Good thing we have instructions dedicated to subtracting!
+The trick for this challenge was that the challHash was uninititialized and had to be assigned to by the OISC loop. Luckily, a transformed version of the output was placed into the MEM region at offset 0x40. This was loaded from a fixed table and was just the ``solved'' string with a character shift of +3. Good thing we have an instruction dedicated to subtracting!
 
-Next began the task of writing a \texttt{subleq} program to shift and store the string. To aid development, we created two-pass a python assembler (available under solutions/C-und-8/asm.py). Our resulting subleq assembly was the following:
+Next began the task of writing a \texttt{subleq} program to shift and store the string. To aid development, we created a two-pass assembler (available under \texttt{solutions/C-uno-8/asm.py}). Our resulting subleq assembly was the following:
 
 \lstinputlisting[language={[x86masm]Assembler}]{../final/C-uno-8/fix.S}
 

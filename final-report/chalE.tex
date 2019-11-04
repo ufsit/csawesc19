@@ -1,11 +1,105 @@
 \subsection{Steel}
-We were unable to solve this challenge.
+This challenge involved MD5 hashing like B-code, with the catch that a hash was performed multiple times to increase ``security''. The input into the hash function is a single byte that is determined by some transformations on card data (easily solved by \angr). Therefore, we must first determine the single byte of input into the MD5 hashing rounds to solve this problem. At first glance, this problem seems like it can be solved with a trivial python bruteforcer:
+
+\begin{lstlisting}[language=python]
+import hashlib
+
+target = "703224f765d313ee4ed0fadcf9d63a5e"
+
+for i in range(256):
+    obj = hashlib.md5()
+    obj.update(chr(i))
+    res = obj.hexdigest()
+
+    for i in range(9):
+        obj.update(res)
+        res = obj.hexdigest()
+
+    if res == target:
+        print("FOUND: " + chr(i))
+        break
+\end{lstlisting}
+
+This proved to be wrong due to the implmentation details of padding during the calls to \texttt{H45H::Final}, which Python's hashlib did not respect. To account for this, we downloaded the library that H45H was compiled from: Hashlib++.\footnote{\url{http://hashlib2plus.sourceforge.net/}}
+We wrote the following program to mirror what we saw in \ghidra:
+
+\begin{lstlisting}
+unsigned char buff[16] = "";|⋅
+std::string target = "703224f765d313ee4ed0fadcf9d63a5e";
+
+for (int i = 0; i < 255; i++) {
+  MD5 * md5 = new MD5();
+  HL_MD5_CTX ctx;
+  unsigned char inp = i;
+
+  memset(&ctx, 0, sizeof(ctx));
+
+  md5->MD5Init(&ctx);
+  md5->MD5Update(&ctx, &inp, (unsigned int)1);
+  md5->MD5Final((unsigned char *)buff, &ctx);
+
+  std::string hexdigest = convToString(buff);
+
+  for (int j = 0; j < 9; j++) {
+    md5->MD5Update(&ctx, (unsigned char *)hexdigest.c_str(), 32);
+    md5->MD5Final((unsigned char *)buff, &ctx);
+
+    hexdigest = convToString(buff);
+  }
+
+  if (hexdigest == target) {
+    std::cout << "Got it: " << inp << std::endl;
+    break;
+  }
+
+  delete md5;
+}
+\end{lstlisting}
+
+Compiling and running with \texttt{g++ -I build/include/ -o test test.cpp build/lib/libhl++.a \&\& ./test} still did not find any results. Debugging with \angr to compare the output of the second Final call showed a mismatch. Digging into the Final function source code yielded the answer:
+
+\begin{lstlisting}[numbers=left,xleftmargin=1em]
+void MD5::MD5Final (unsigned char digest[16], HL_MD5_CTX *context)
+{
+   ...
+
+   /*
+    * Zeroize sensitive information.
+    */
+   MD5_memset ((POINTER)context, 0, sizeof (*context));
+}
+\end{lstlisting}
+
+The memset on line 8 was NOT in the compiled version running on the Teensy. Commenting this line out allowed the test program to find the correct hash input of semicolon (`;'). With this initial input, we could now use \angr to solve the first transforms with the known ending constraint of semicolon:
+
+\begin{lstlisting}[language=python]
+st.memory.store(WHITE_CARD_START_ADDR+0x191, st.solver.BVS('input', 8*3))
+
+mgr = self.proj.factory.simgr(st)
+mgr.explore(find=[0x1796+1])
+
+s = mgr.found[0]
+s.solver.add(s.memory.load(s.regs.r7+0x8c, 1) == ord(';'))
+
+self.print_table(s)
+\end{lstlisting}
 
 \subsection{Caeser}
-We were unable to solve this challenge.
+We were unable to solve this challenge due to time constraints.
 
 \subsection{Spiral}
-We were unable to solve this challenge.
+This challenge was easily solved by \angr and did not require any reversing:
+
+\begin{lstlisting}[language=python]
+st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY'])⋅
+mgr = self.proj.factory.simgr(st)
+
+st.memory.store(WHITE_CARD_START_ADDR+0x18d, st.solver.BVS("input", 8*4))
+mgr.explore(find=[0x1e05], avoid=[0x1e2b])
+
+s = mgr.found[0]
+self.print_table(s)
+\end{lstlisting}
 
 \subsection{Tower}
 Examining the challenge showed it was comparing against a SHA-256 hash again, but this time with an input length of 13. Even if the password was only lower-case letters, this would require more than $2 x 10^{18}$ hashes -- far exceeding a bruteforceable limit. There was a base64 encoded string above the hashing that decoded to `ht'. We assumed this stood for hash table and wasted time looking for one. We also used ocl-hashcat with as many wordlists and rule sets as we could given the time, but no matches were found. Further investigation showed that there were more base64 strings encoded throughout. We collected and decoded them all below:

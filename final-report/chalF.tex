@@ -1,2 +1,21 @@
 \subsection{Spire}
-We were unable to solve this challenge.
+The final challenge looked resonably straight forward to have \angr solved.
+But when running the resulting table on the device, it reset. Examining the code further showed a strange variable assignment to \texttt{\_Reset}. Looking at the assembly confirmed that there was a store instruction that was writing by default to the reset vectors, causing a processor fault. In order for our table to process and to see any debugging information we need to avoid this reset. To do this, we employ the overflow given to us when offset 0x36f is non-zero. This allows us to write an arbitrary amount of data onto the stack, overflowing into nearby variables. One of these variables is the store address that was causing the reset. By replacing this address with a known global address that is writable we can avoid the reset condition. Additionally, past this variable is a final comparision required to be non-zero to solve, which we can also overwrite.
+The concrete solution in \angr is below:
+
+\begin{lstlisting}[language=python]
+st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY'])⋅
+
+# the amount of bytes to overwrite on the stack (negative)
+st.memory.store(WHITE_CARD_START_ADDR+0x280, pack("<I", 0) + pack("<i", -(4*3)))
+# needs to be non-zero inorder to allow for overwrite
+st.memory.store(WHITE_CARD_START_ADDR+0x36f, pack("B", 1))
+# must be non-zero to print debugging information
+st.memory.store(WHITE_CARD_START_ADDR+0x340, pack("B", 1))
+# The region which is written on to key stack variables
+# 0x2c3 must be 1 to pass the final check, 0x2c7 a dont'care,
+# 0x2cb MUST be a valid writable memory address to avoid resets
+st.memory.store(WHITE_CARD_START_ADDR+0x2c3, pack("<IIIB", 1, 0, 0x1fffa140, 0))
+\end{lstlisting}
+
+\noindent \angr was instrumental in showing which addresses and which offsets of the card data were written. Like challenge D-bounce, this challenge can be exploited to achieve arbitrary code execution as the saved LR can be overwritten.
