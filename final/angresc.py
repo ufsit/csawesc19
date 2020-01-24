@@ -422,6 +422,10 @@ class ESCAngr(object):
         print("delay() called")
         s.regs.pc = s.regs.lr
 
+    def putchar(s):
+        print("PUTCH %02x", s.regs.r0)
+        s.regs.pc = s.regs.lr
+
     def _hook_prints(self):
 
         for i in self.obj.symbols:
@@ -430,6 +434,9 @@ class ESCAngr(object):
                 print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
             elif i.demangled_name.startswith("delay"):
                 self.proj.hook(i.linked_addr, ESCAngr.no_op)
+                print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
+            elif i.demangled_name.startswith("usb_serial_putchar"):
+                self.proj.hook(i.linked_addr, ESCAngr.putchar)
                 print("Hooked %s (0x%08x)" % (i.demangled_name, i.linked_addr))
 
     def solve_recess(self):
@@ -526,7 +533,7 @@ class ESCAngr(object):
         payload_offset = 0x111
         print("[+] Exploit target PC %08x" % target_pc)
 
-        stage1 = b"\x00"*12 + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
+        stage1 = b"\x00"*11 + bytes(chr(target_pc & 0xff), 'ascii') + pack("<I", 12) + b"\x00\x00\x00\x00" + pack("<I", target_pc)
 
         st.memory.store(WHITE_CARD_START_ADDR, b"\x00"*WHITE_CARD_SZ)
 
@@ -553,6 +560,11 @@ class ESCAngr(object):
 
         st.memory.store(0x1fff976d, b"\x00"*WHITE_CARD_SZ)
         st.memory.store(0x1fff976d+payload_offset, payload)
+
+        for i in range(64):
+            if i in [0, 1, 2, 3] or (i > 6 and ((i - 7) % 4 == 0)):
+                st.memory.store(WHITE_CARD_START_ADDR+i*16, b"\x00"*16)
+                st.memory.store(0x1fff976d+i*16, b"\x00"*16)
 
         st.memory.store(BUTTON_OFFSET, st.solver.BVS('button', 8))
 
@@ -701,6 +713,37 @@ class ESCAngr(object):
         self.print_table(mgr.unconstrained[0])
 
 
+    def solve_live(self):
+        self._set_start_symbol("_Z14challenge_live6packet")
+        addr = self.sym.linked_addr
+
+        self._hook_prints()
+
+        st = self._get_start_state(addr, ['ZERO_FILL_UNCONSTRAINED_MEMORY']) 
+
+        
+        mgr = self.proj.factory.simgr(st)
+        mgr.use_technique(angr.exploration_techniques.Explorer(find=[0x99f], avoid=[0x9c3,0x8c9,0x911,0x984]))
+
+        for dat in [0x14, 0x53, 0x71, 0xd4, 0xe1, 0xc3, 0xd1, 0xe2, 0xf4]:
+            st.memory.store(WHITE_CARD_START_ADDR+0x380, chr(dat))
+
+        def fixup(s):
+            offsets = [1,5,7,8,10,12,13,14,15]
+            base = 0x1fff8800
+            print("FIXUP")
+            for i,o in enumerate(offsets):
+                bvs = s.solver.BVS("input%d" % o, 8)
+                s.memory.store(base+o, bvs)
+                s.memory.store(WHITE_CARD_START_ADDR+0x380+i, bvs)
+
+        #st.inspect.b('instruction', when=angr.BP_BEFORE, instruction=0x889, action=lambda s: fixup(s))
+
+        mgr.run()
+        print(mgr)
+        embed()
+
+
 challenges = {
     "A" : ["stairs", "cafe", "closet", "lounge"],
     "B" : ["dance", "code", "mobile", "blue"],
@@ -708,6 +751,7 @@ challenges = {
     "D" : ["bounce"],
     "E" : ["steel", "caesar", "spiral", "tower"],
     "F" : ["spire"],
+    "G" : ["live"],
 }
 
 def main():
@@ -721,8 +765,11 @@ def main():
     chset = tokens[0]
     name = tokens[1]
 
-    if chset in ["A", "B", "C", "D", "E", "F"]:
-        esc = ESCAngr(chset + "/TeensyChallengeSet" + chset + ".ino.elf")
+    if chset in ["A", "B", "C", "D", "E", "F", "G"]:
+        if chset == "G":
+            a = "G/TeensyLiveChallengeG.ino.elf"
+        
+        esc = ESCAngr(a)
         challs = challenges[chset]
 
         if name not in challs:
