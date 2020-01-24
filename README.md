@@ -1,18 +1,34 @@
-# Using angr
+# CSAW Embedded Security Challenge 2019 (Kernel Sanders)
+Kernel Sanders participated in CSAW's 2019 embedded security challenge, which involved exploiting a series of challenges via specially crafted RFID card data (see the [call for submissions repo](https://github.com/TrustworthyComputing/csaw_esc_2019) for a better overview). Effectively, we'd develop attack payloads to target a specific challenge, program it onto a standard blank RFID card, and scan it at a reader, launching the payload.
+We approached solving the 18 bite-sized crackme-style challenges using angr instead of manually reversing them using GHIDRA (no paid tools could be used).
+Along the way we experienced challenges in performing symbolic execution in an embedded context, which we handled by mocking out I/O specific functions (mainly serial and USB). See our [`solver script`](/final/angresc.py) for the actual code.
 
-Install the dependencies:
+One of the cooler things we managed was to achieve _arbitrary code execution_ on the provided board. We leveraged a buffer overflow and crafted an ARM shellcode payload to print message to the screen (see [the video](https://drive.google.com/open?id=1Dxu0LSNhNxHRTTTYGJKsosiagBaUCiCX) for the exploit running).
+In the end, we solved 16 out of the 18 challenges (and the on-site live challenge), many of which were automatically solvable using angr. We earned 3rd place! See our final report and presentation for even more details. If you want to replicate our solver scripts, read below.
+
+[Final Presentation [PDF]](/export/esc19-presentation-kernelsanders.pdf?raw=true) | [Demo Video [GDRIVE VIDEO]](https://drive.google.com/open?id=1Dxu0LSNhNxHRTTTYGJKsosiagBaUCiCX) | [Final Report [PDF]](/export/esc19-final-kernelsanders.pdf?raw=true) | [Qual Report [PDF]](/export/esc19-qual-kernelsanders.pdf?raw=true)
+:----------:|:---------:|:--------------:|:------------:
+
+## Other CSAW ESC Solutions
+* [Shellphish (UCSB)](https://github.com/ucsb-seclab/hal-fuzz) - 1st
+* [Arizona State University (ASU)](https://github.com/pwndevils/csaw-esc-19) - 2nd
+
+## Solving the "Stairs" Challenge Using angr
+To replicate our results run the following commands (tested on Ubuntu 16.04 + Python 3):
 
 ```
-$ pip install -r requirements.txt
-$ ./angresc.py
-usage: angresc.py [-h] challenge
-angresc.py: error: the following arguments are required: challenge
+git clone https://github.com/ufsit/csawesc19.git
+cd csawesc19/final/
+# it is highly recommeneded you use a python virtual environment before continuing
+pip install -r requirements.txt
+./angresc.py A-stairs
 ```
 
-## Solving Stairs with angr
+You should see the following output:
 
 ```
-$ ./angresc.py A-stairs
+Importing angr...
+/home/user/.../cparser.py:164: UserWarning: <snip>
 WARNING | 2019-11-04 11:39:30,369 | cle.elf | Segment PT_LOAD is empty at 0x1fff8000!
 Calling solve_stairs
 Function set to challenge_3(packet)
@@ -127,3 +143,5 @@ p = [
 a = 0x0
 b = 0x0
 ```
+
+What just happened was that angr loaded the challenge binary (`TeensyChallengeSetA.ino.elf`), created an initial blank state starting at the Stair challenge function, set a known memory region to symbolic (the storage for the RFID card data), executed until the win/end condition, and finally concretized the symbolic table into one that can be uploaded on to the provided RFID card to solve the challenge. For more details on specific challenge solutions, check out the [final report](/export/esc19-final-kernelsanders.pdf?raw=true). Also check out the [all-in-one solver](/final/angresc.py) for individual challenge solutions (they are self-contained).
