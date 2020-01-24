@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+print("Importing angr...")
+
 import angr
 import re
 import argparse
@@ -755,8 +757,15 @@ challenges = {
 }
 
 def main():
+    choices = []
+    for k, v in challenges.items():
+        for vv in v:
+            choices += [k + "-" + vv]
+
+    choices = sorted(choices)
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('challenge')
+    parser.add_argument('challenge', choices=choices)
 
     args = parser.parse_args()
     chalname = args.challenge
@@ -767,9 +776,10 @@ def main():
 
     if chset in ["A", "B", "C", "D", "E", "F", "G"]:
         if chset == "G":
-            a = "G/TeensyLiveChallengeG.ino.elf"
+            esc = ESCAngr("G/TeensyLiveChallengeG.ino.elf")
+        else:
+            esc = ESCAngr(chset + "/TeensyChallengeSet" + chset + ".ino.elf")
         
-        esc = ESCAngr(a)
         challs = challenges[chset]
 
         if name not in challs:
